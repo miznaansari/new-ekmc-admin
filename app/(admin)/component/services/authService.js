@@ -6,9 +6,15 @@ const request = async (url, options = {}) => {
     ...options.headers,
   };
 
+  let body = options.body;
+  if (body && typeof body === 'object') {
+    body = JSON.stringify(body);
+  }
+
   const response = await fetch(url, {
     ...options,
     headers,
+    body,
   });
 
   let data = null;

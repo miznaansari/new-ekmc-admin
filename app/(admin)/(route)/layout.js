@@ -359,7 +359,7 @@ export default function AdminLayout({ children }) {
     return (
         <Box sx={{ minHeight: '100vh', backgroundColor: '#F7FAF7' }}>
             {/* App Bar floats at the top of the page */}
-            <AppBar position="sticky" elevation={0} sx={{ top: '16px', m: 2, zIndex: 1100, width: 'calc(100% - 32px)' }}>
+            <AppBar position="sticky" elevation={0} sx={{ top: '16px', m: 2, mb: 1, zIndex: 1100, width: 'calc(100% - 32px)' }}>
                 <Toolbar>
                     <IconButton aria-label="open drawer" edge="start" onClick={handleDrawerToggle}>
                         <MenuSvg />
@@ -462,9 +462,10 @@ export default function AdminLayout({ children }) {
                     sx={{
                         display: 'flex',
                         flexDirection: 'column',
-                        width: { xs: '100%', lg: (drawerOpen && isDesktop) ? 'calc(100vw - 285px)' : '100%' },
+                        width: { xs: '100%', lg: (drawerOpen && isDesktop) ? 'calc(100vw - 250px)' : '100%' },
                         transition: 'width 0.2s ease',
                         p: 0,
+                        px: 2
                     }}
                 >
                     {/* Main child content */}
@@ -481,14 +482,16 @@ export default function AdminLayout({ children }) {
                 onClose={handleProfileMenuClose}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                PaperProps={{
-                    elevation: 3,
-                    sx: {
-                        mt: 1.5,
-                        minWidth: '200px',
-                        borderRadius: '12px',
-                        border: '1px solid rgba(0, 74, 0, 0.08)',
-                        p: 0.5
+                slotProps={{
+                    paper: {
+                        elevation: 3,
+                        sx: {
+                            mt: 1.5,
+                            minWidth: '200px',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(0, 74, 0, 0.08)',
+                            p: 0.5
+                        }
                     }
                 }}
             >
