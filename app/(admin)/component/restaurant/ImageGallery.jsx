@@ -5,7 +5,7 @@ import Icon from "../../../assets/Icon";
 import { Box } from "@mui/system";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
-import instanceV1 from "../../../api/axiosInstance";
+import instanceV1 from "./authaxios";
 import { useSelector } from "react-redux";
 import Spinner from "../../../Components/Progress/Spinner";
 import Toast from "../../../Components/Toast";

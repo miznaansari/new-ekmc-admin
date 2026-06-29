@@ -12,7 +12,7 @@ import EditOptions from "./EditOptions";
 import Icon from "../../../assets/Icon";
 import { useSelector } from "react-redux";
 import { useEffect, useState } from "react";
-import instanceV1 from "../../../api/axiosInstance";
+import instanceV1 from "./authaxios";
 import Toast from "../../../Components/Toast";
 import Spinner from "../../../Components/Progress/Spinner";
 import { validatePhoneNumber } from "../../../auth/RegexValidation/validate";
