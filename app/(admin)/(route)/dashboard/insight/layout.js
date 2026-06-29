@@ -518,6 +518,7 @@ export default function AdminLayout({ children }) {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         Logout
                     </Typography>
+
                 </MenuItem>
             </Menu>
         </Box>
