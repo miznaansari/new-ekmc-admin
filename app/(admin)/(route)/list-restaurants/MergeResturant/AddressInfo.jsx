@@ -2,7 +2,6 @@ import { Alert, Autocomplete, Box, Button, Grid, Paper, Snackbar, TextField, Typ
 import { Search, MyLocation, Clear, Add, Remove } from "@mui/icons-material";
 import axios from "axios";
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Controller, useForm } from "react-hook-form";
 
 const extractPincode = (addressComponents) => {
     if (!addressComponents || !Array.isArray(addressComponents)) return null;
@@ -15,17 +14,20 @@ const extractPincode = (addressComponents) => {
 };
 
 const AddressInfo = ({ cafeId, mapContainerId }) => {
-    const { control, handleSubmit, reset, getValues, watch, formState: { errors }, setValue } = useForm({
-        defaultValues: {
-            address_1: "",
-            address_2: "",
-            city_name: "",
-            city_id: null,
-            pin_code: "",
-            latitude: "",
-            longitude: "",
-        },
-        mode: 'onBlur' 
+    const [formData, setFormData] = useState({
+        address_1: "",
+        address_2: "",
+        city_name: "",
+        city_id: null,
+        pin_code: "",
+        latitude: "",
+        longitude: "",
+    });
+
+    const [formErrors, setFormErrors] = useState({
+        address_1: "",
+        city_id: "",
+        pin_code: ""
     });
 
     const [alert, setAlert] = useState({
@@ -67,9 +69,7 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showSearchResults, setShowSearchResults] = useState(false);
-    // NEW: State for selected address text
     const [selectedAddressText, setSelectedAddressText] = useState("");
-    // NEW: State for initial address text (for comparison)
     const [initialAddressText, setInitialAddressText] = useState("");
     const resolvedMapContainerId = mapContainerId || `map-${cafeId}`;
 
@@ -84,63 +84,92 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         positionRef.current = position;
     }, [position]);
 
-    // Validation rules
-    const validationRules = {
-        address_1: {
-            required: "Address 1 is required"
-        },
-        city_id: {
-            required: "City is required"
-        },
-        pin_code: {
-            required: "Pin code is required",
-            pattern: {
-                value: /^\d{6}$/,
-                message: "Pin code must be 6 digits"
+    const getValues = useCallback(() => formData, [formData]);
+
+    const reset = useCallback((data) => {
+        setFormData(data);
+        setFormErrors({
+            address_1: "",
+            city_id: "",
+            pin_code: ""
+        });
+    }, []);
+
+    const setValue = useCallback((key, value, options = {}) => {
+        setFormData(prev => {
+            const updated = { ...prev, [key]: value };
+            if (options.shouldValidate) {
+                let error = "";
+                if (key === "address_1" && !value) {
+                    error = "Address 1 is required";
+                } else if (key === "city_id" && !value) {
+                    error = "City is required";
+                } else if (key === "pin_code") {
+                    if (!value) {
+                        error = "Pin code is required";
+                    } else if (!/^\d{6}$/.test(value)) {
+                        error = "Pin code must be 6 digits";
+                    }
+                }
+                setFormErrors(prevErrors => ({ ...prevErrors, [key]: error }));
             }
+            return updated;
+        });
+    }, []);
+
+    const handleFieldChange = (name, value) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (formErrors[name]) {
+            setFormErrors(prev => ({ ...prev, [name]: "" }));
         }
     };
 
-    // Watch all form fields for changes
-    const formValues = watch();
-
-
+    const handleFieldBlur = (name) => {
+        let error = "";
+        const value = formData[name];
+        if (name === "address_1" && !value) {
+            error = "Address 1 is required";
+        } else if (name === "city_id" && !selectedCity?.value) {
+            error = "City is required";
+        } else if (name === "pin_code") {
+            if (!value) {
+                error = "Pin code is required";
+            } else if (!/^\d{6}$/.test(value)) {
+                error = "Pin code must be 6 digits";
+            }
+        }
+        setFormErrors(prev => ({ ...prev, [name]: error }));
+    };
 
     // Check if form data is modified
     const checkIfDataModified = useCallback(() => {
         if (!initialFormValues) return false;
         
-        const currentValues = getValues();
-        
-        // Check if text fields have changed
         const isTextFieldsChanged = 
-            currentValues.address_1 !== initialFormValues.address_1 ||
-            currentValues.address_2 !== initialFormValues.address_2 ||
-            currentValues.pin_code !== initialFormValues.pin_code;
+            formData.address_1 !== initialFormValues.address_1 ||
+            formData.address_2 !== initialFormValues.address_2 ||
+            formData.pin_code !== initialFormValues.pin_code;
             
-        // Check if city selection has changed
         const isCityChanged = 
             selectedCity?.value !== initialSelectedCity?.value;
             
-        // Check if map location has changed
         const isPositionChanged = 
             !initialPosition ? !!position :
             !position ? !!initialPosition :
             Math.abs(position.lat - initialPosition.lat) > 0.000001 || 
             Math.abs(position.lng - initialPosition.lng) > 0.000001;
             
-        // NEW: Check if address text has changed
         const isAddressTextChanged = selectedAddressText !== initialAddressText;
             
         return isTextFieldsChanged || isCityChanged || isPositionChanged || isAddressTextChanged;
-    }, [getValues, initialFormValues, selectedCity, initialSelectedCity, position, initialPosition, selectedAddressText, initialAddressText]);
+    }, [formData, initialFormValues, selectedCity, initialSelectedCity, position, initialPosition, selectedAddressText, initialAddressText]);
 
     // Update the modified status whenever relevant state changes
     useEffect(() => {
         setIsFormModified(checkIfDataModified());
-    }, [formValues, selectedCity, position, selectedAddressText, checkIfDataModified]);
+    }, [formData, selectedCity, position, selectedAddressText, checkIfDataModified]);
 
-    // NEW: Function to perform reverse geocoding and get address details
+    // Function to perform reverse geocoding and get address details
     const reverseGeocode = useCallback(async (position) => {
         try {
             const response = await axios.get(
@@ -157,19 +186,15 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 const result = response.data.results[0];
                 const formattedAddress = result.formatted_address;
                 
-                // Extract pincode from address components
                 const pincode = extractPincode(result.address_components);
                 
-                // Update search field with the address
                 setSelectedAddressText(formattedAddress);
                 setSearchQuery(formattedAddress);
                 
-                // Update pincode if found
                 if (pincode) {
                     setValue('pin_code', pincode, { shouldDirty: true, shouldValidate: true });
                 }
 
-                // Update address fields
                 if (formattedAddress) {
                     const parts = formattedAddress.split(',').map(p => p.trim());
                     const addr1 = parts.slice(0, 2).join(', ');
@@ -189,7 +214,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
     // Function to update popup text
     const updatePopupText = useCallback((pos) => {
         if (popupRef.current) {
-            //popupRef.current.setText(`Lat: ${pos.lat}, Lng: ${pos.lng}`);
             if (!popupRef.current.isOpen()) {
                 markerRef.current.togglePopup();
             }
@@ -203,7 +227,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         const { lat, lng } = newPosition;
 
         if (!markerRef.current) {
-            // Create marker if it doesn't exist
             markerRef.current = olaMapsRef.current
                 .addMarker({
                     offset: [0, -20],
@@ -214,28 +237,25 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 .setLngLat([lng, lat])
                 .addTo(mapRef.current);
 
-            // Create popup
             popupRef.current = olaMapsRef.current.addPopup({
                 offset: [0, -30],
                 anchor: "top",
             });
-
             markerRef.current.setPopup(popupRef.current);
 
-            // Add drag event listener
             markerRef.current.on("dragend", () => {
-                const { lat: dragLat, lng: dragLng } = markerRef.current.getLngLat();
-                const posData = {
-                    lat: parseFloat(dragLat.toFixed(6)),
-                    lng: parseFloat(dragLng.toFixed(6)),
+                const lngLat = markerRef.current.getLngLat();
+                console.log("Marker dragged - lat and lng:", lngLat.lat, lngLat.lng);
+                
+                const dragPos = {
+                    lat: parseFloat(lngLat.lat.toFixed(6)),
+                    lng: parseFloat(lngLat.lng.toFixed(6))
                 };
-                setPosition(posData);
-                updatePopupText(posData);
-                // NEW: Get address for dragged location and update pincode
-                reverseGeocode(posData);
+                
+                setPosition(dragPos);
+                reverseGeocode(dragPos);
             });
 
-            // Only center map when marker is first created or when explicitly requested
             if (shouldCenterMap) {
                 mapRef.current.flyTo({
                     center: [lng, lat],
@@ -244,15 +264,13 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 });
             }
         } else {
-            // Update existing marker position
             markerRef.current.setLngLat([lng, lat]);
             
-            // Only center map if explicitly requested, and preserve current zoom
             if (shouldCenterMap) {
                 const currentZoom = mapRef.current.getZoom();
                 mapRef.current.flyTo({
                     center: [lng, lat],
-                    zoom: currentZoom, // Preserve current zoom level
+                    zoom: currentZoom,
                     duration: 1000
                 });
             }
@@ -302,7 +320,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 });
                 mapInstance = mapRef.current;
 
-                // Add click event listener to map
                 mapRef.current.on("click", (e) => {
                     const { lat, lng } = e.lngLat;
                     console.log("Map clicked - lat and lng:", lat, lng);
@@ -312,10 +329,9 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                         lng: parseFloat(lng.toFixed(6)) 
                     };
 
-                    updateMarkerPosition(newPos, false); // Don't center map on click
+                    updateMarkerPosition(newPos, false);
                     setPosition(newPos);
                     
-                    // NEW: Get address for clicked location and update pincode
                     reverseGeocode(newPos);
                 });
 
@@ -331,7 +347,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
 
         initMaps();
 
-        // Cleanup function
         return () => {
             active = false;
             if (mapInstance) {
@@ -346,47 +361,58 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
 
     // Function to search locations using Ola Maps API
     const searchLocation = async (query) => {
-        if (!query.trim() || query.length < 3) {
-            setSearchResults([]);
-            setShowSearchResults(false);
-            return;
-        }
-
-        setIsSearching(true);
         try {
+            setIsSearching(true);
             const response = await axios.get(
                 `https://api.olamaps.io/places/v1/autocomplete`,
                 {
                     params: {
                         input: query,
-                        api_key: OlaApiKey,
-                        // You can add more parameters like location bias, radius, etc.
-                        // location: `${position?.lat},${position?.lng}`, // Bias search around current location
-                        // radius: 50000 // 50km radius
+                        api_key: OlaApiKey
                     }
                 }
             );
 
             if (response.data && response.data.predictions) {
-                const results = response.data.predictions.map((prediction) => ({
-                    id: prediction.place_id,
-                    title: prediction.structured_formatting?.main_text || prediction.description,
-                    subtitle: prediction.structured_formatting?.secondary_text || '',
-                    fullAddress: prediction.description,
-                    placeId: prediction.place_id
+                const results = response.data.predictions.map(pred => ({
+                    id: pred.place_id,
+                    placeId: pred.place_id,
+                    title: pred.structured_formatting?.main_text || pred.description,
+                    subtitle: pred.structured_formatting?.secondary_text || "",
+                    fullAddress: pred.description
                 }));
                 setSearchResults(results);
-                setShowSearchResults(true);
+                setShowSearchResults(results.length > 0);
             }
         } catch (error) {
-            console.error('Error searching locations:', error);
+            console.error('Error searching location:', error);
             setSearchResults([]);
         } finally {
             setIsSearching(false);
         }
     };
 
-    // Function to get place details and coordinates
+    const handleSearchInputChange = (e) => {
+        const value = e.target.value;
+        setSearchQuery(value);
+    };
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (searchQuery.trim()) {
+                searchLocation(searchQuery);
+            }
+        }
+    };
+
+    const clearAddressText = () => {
+        setSearchQuery("");
+        setSelectedAddressText("");
+        setSearchResults([]);
+        setShowSearchResults(false);
+    };
+
     const getPlaceDetails = async (placeId) => {
         try {
             const response = await axios.get(
@@ -412,7 +438,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                     setPosition(newPosition);
                     updateMarkerPosition(newPosition);
                     
-                    // NEW: Set the selected address text and update pincode
                     const selectedResult = searchResults.find(r => r.placeId === placeId);
                     const addressToUse = selectedResult ? selectedResult.fullAddress : place.formatted_address;
                     
@@ -420,13 +445,11 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                         setSelectedAddressText(addressToUse);
                         setSearchQuery(addressToUse);
                         
-                        // Extract pincode from place details
                         const pincode = extractPincode(place.address_components);
                         if (pincode) {
                             setValue('pin_code', pincode, { shouldDirty: true, shouldValidate: true });
                         }
 
-                        // Split address and update fields
                         const parts = addressToUse.split(',').map(p => p.trim());
                         const addr1 = parts.slice(0, 2).join(', ');
                         const addr2 = parts.slice(2).join(', ');
@@ -434,7 +457,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                         setValue('address_2', addr2, { shouldDirty: true, shouldValidate: true });
                     }
                     
-                    // Clear search results
                     setSearchResults([]);
                     setShowSearchResults(false);
                 }
@@ -444,79 +466,37 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         }
     };
 
-    // Function to get current location
     const getCurrentLocation = () => {
         if (!navigator.geolocation) {
             setAlert({
                 open: true,
                 severity: "error",
-                message: "Geolocation is not supported by this browser",
+                message: "Geolocation is not supported by your browser"
             });
             return;
         }
 
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                const newPos = {
+                const currentPos = {
                     lat: parseFloat(position.coords.latitude.toFixed(6)),
                     lng: parseFloat(position.coords.longitude.toFixed(6))
                 };
-                setPosition(newPos);
-                updateMarkerPosition(newPos);
-                
-                // NEW: Get address for current location and update pincode
-                reverseGeocode(newPos);
-                
-                setAlert({
-                    open: true,
-                    severity: "success",
-                    message: "Location updated to your current position",
-                });
+                setPosition(currentPos);
+                updateMarkerPosition(currentPos);
+                reverseGeocode(currentPos);
             },
             (error) => {
-                console.error('Error getting current location:', error);
+                console.error("Error getting geolocation:", error);
                 setAlert({
                     open: true,
                     severity: "error",
-                    message: "Unable to get your current location",
+                    message: "Unable to retrieve your location"
                 });
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 60000
             }
         );
     };
 
-    // NEW: Function to clear address text
-    const clearAddressText = () => {
-        setSelectedAddressText("");
-        setSearchQuery("");
-        setSearchResults([]);
-        setShowSearchResults(false);
-    };
-
-    // NEW: Handle search input change
-    const handleSearchInputChange = (e) => {
-        const value = e.target.value;
-        setSearchQuery(value);
-        
-        // If user is typing and the value doesn't match selectedAddressText, clear it
-        if (value !== selectedAddressText) {
-            setSelectedAddressText("");
-        }
-    };
-
-    // NEW: Handle backspace/delete key to clear address
-    const handleSearchKeyDown = (e) => {
-        if ((e.key === 'Backspace' || e.key === 'Delete') && searchQuery === selectedAddressText) {
-            // If user presses backspace on the full address, clear it
-            clearAddressText();
-        }
-    };
-
-    // Debounced search - only search if not showing selected address
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
             if (searchQuery.trim() && searchQuery !== selectedAddressText) {
@@ -536,7 +516,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         }
     }, [position, updateMarkerPosition]);
 
-    // Fetch address info api
     const fetchAddress = async () => {
         try {
             const response = await axios.get(`${baseUrl}/api/user/admin/restaurant-all-info/${cafeId}`, {
@@ -547,8 +526,7 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
             console.log("response in address info - ", response.data?.data);
             const [data] = response.data.data;
             
-            // Set form values
-            const formData = {
+            const fetchedData = {
                 address_1: data.address_1 || "",
                 address_2: data.address_2 || "",
                 city_name: data.city_name || "",
@@ -558,14 +536,12 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 city_id: data.city_id || null,
             };
             
-            reset(formData);
+            reset(fetchedData);
             
-            // Set city data
             const cityData = {label: data.city_name, value: data.city_id};
             setSelectedCity(cityData);
             setInitialSelectedCity(cityData);
             
-            // Set position data
             if (data.latitude && data.longitude) {
                 const posData = {
                     lat: parseFloat(data.latitude),
@@ -574,16 +550,12 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 setPosition(posData);
                 setInitialPosition({...posData});
                 
-                // NEW: Get address text for the existing location
                 reverseGeocode(posData).then(() => {
                     setInitialAddressText(selectedAddressText);
                 });
             }
             
-            // Store initial form values for comparison
-            setInitialFormValues({...formData});
-            
-            // Reset modification status
+            setInitialFormValues({...fetchedData});
             setIsFormModified(false);
         } catch(e) {
             console.log("error during address fetch- ", e);
@@ -596,7 +568,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         }
     }, [cafeId]);
 
-    // Fetch city dropdown
     const fetchCity = async () => {
         try {
             const response = await axios.get(`${baseUrl}/api/v1/city-list`, {
@@ -629,15 +600,10 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         return () => clearTimeout(delayDebounce);
     }, [searchCityQuery]);
 
-    // Edit Addressinfo
     const editAddressInfo = async (data) => {
         console.log("position inside edit - ", position);
         console.log("form data - ", data.latitude, data.longitude);
         
-        // Check if there's no location data at all
-        // Should show error only when BOTH conditions are true:
-        // 1. No position from map interaction
-        // 2. No existing latitude/longitude data
         if (!position && (!data.latitude || !data.longitude)) {
             setAlert({
                 open: true, 
@@ -667,21 +633,16 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
             );
             console.log("Address info updated:", response.data);
             
-            // Show success alert
             setAlert({
                 open: true,
                 severity: "success",
                 message: "Address info updated successfully",
             });
             
-            // Update all initial values to match current values
-            setInitialFormValues({...getValues()});
+            setInitialFormValues({...data});
             setInitialSelectedCity({...selectedCity});
             setInitialPosition(position ? {...position} : null);
-            // NEW: Update initial address text
             setInitialAddressText(selectedAddressText);
-            
-            // Reset modification status
             setIsFormModified(false);
             
         } catch(e) {
@@ -694,6 +655,48 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         }
     };
 
+    const handleSaveAddress = () => {
+        let valid = true;
+        
+        let address1Error = "";
+        if (!formData.address_1) {
+            address1Error = "Address 1 is required";
+            valid = false;
+        }
+        
+        let cityIdError = "";
+        if (!selectedCity?.value) {
+            cityIdError = "City is required";
+            valid = false;
+        }
+        
+        let pincodeError = "";
+        if (!formData.pin_code) {
+            pincodeError = "Pin code is required";
+            valid = false;
+        } else if (!/^\d{6}$/.test(formData.pin_code)) {
+            pincodeError = "Pin code must be 6 digits";
+            valid = false;
+        }
+        
+        setFormErrors({
+            address_1: address1Error,
+            city_id: cityIdError,
+            pin_code: pincodeError
+        });
+        
+        if (!valid) {
+            setAlert({
+                open: true, 
+                severity: "error", 
+                message: "Please fix the errors before saving."
+            });
+            return;
+        }
+        
+        editAddressInfo(formData);
+    };
+
     return(
         <Paper sx={{ p: 0 }}>
             <Typography variant="h5" gutterBottom>Address Info</Typography>
@@ -704,156 +707,123 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
             )}
             <Grid container spacing={2}>
                 <Grid size={{ xs: 6 }}>
-                    <Controller
-                        name="address_1"
-                        control={control}
-                        rules={validationRules.address_1}
-                        render={({ field }) => (
-                            <TextField
-                                {...field}
-                                label="Address 1 *"
-                                fullWidth
-                                size="small"
-                                disabled={isOffline}
-                                error={!!errors.address_1}
-                                helperText={errors.address_1?.message}
-                                slotProps={{
-                                    input: {
-                                        sx: {
-                                            '& .MuiOutlinedInput-notchedOutline': {
-                                                borderRadius: '4px',
-                                            },
-                                        }
-                                    }
-                                  }}
-                            />
-                        )}
+                    <TextField
+                        value={formData.address_1 || ""}
+                        onChange={(e) => handleFieldChange("address_1", e.target.value)}
+                        onBlur={() => handleFieldBlur("address_1")}
+                        label="Address 1 *"
+                        fullWidth
+                        size="small"
+                        disabled={isOffline}
+                        error={!!formErrors.address_1}
+                        helperText={formErrors.address_1}
+                        slotProps={{
+                            input: {
+                                sx: {
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderRadius: '4px',
+                                    },
+                                }
+                            }
+                          }}
                     />
                 </Grid>
 
                 <Grid size={{ xs: 6 }}>
-                <Controller
-                        name="address_2"
-                        control={control}
-                        render={({ field }) => (
-                            <TextField
-                                {...field}
-                                label="Address 2"
-                                fullWidth
-                                size="small"
-                                disabled={isOffline}
-                                slotProps={{
-                                    input: {
-                                        sx: {
-                                            '& .MuiOutlinedInput-notchedOutline': {
-                                                borderRadius: '4px',
-                                            },
-                                        }
-                                    }
-                                  }}
-                            />
-                        )}
+                    <TextField
+                        value={formData.address_2 || ""}
+                        onChange={(e) => handleFieldChange("address_2", e.target.value)}
+                        label="Address 2"
+                        fullWidth
+                        size="small"
+                        disabled={isOffline}
+                        slotProps={{
+                            input: {
+                                sx: {
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderRadius: '4px',
+                                    },
+                                }
+                            }
+                          }}
                     />
                 </Grid>
-              <Grid size={{ xs: 6 }}>
-                    <Controller
-                        name="city_id"
-                        control={control}
-                        rules={validationRules.city_id}
-                        render={({field:{onChange}}) => (
-                            <Box>
-                               <Autocomplete
-  options={cityOptions}
-  value={selectedCity}
-  getOptionLabel={(option) => option?.label || ""}
-  isOptionEqualToValue={(option, value) =>
-    option?.value === value?.value
-  }
-  onChange={(_, newValue) => {
-    onChange(newValue?.value || null);
-    setSelectedCity(newValue);
-  }}
-  onInputChange={(_, inputValue) => {
-    setCityOptions([]);
-    setSearchCityQuery(inputValue);
-  }}
-  sx={{
-    "& .MuiOutlinedInput-root": {
-      borderRadius: "4px",
-    },
-  }}
-  renderOption={(props, option) => (
-    <li {...props} key={option.value}>
-      <span className="text-sm font-medium text-gray-900">
-        {option.label}
-      </span>
-      {option.state && (
-        <span className="text-xs text-gray-500">
-          , {option.state}
-        </span>
-      )}
-    </li>
-  )}
-  renderInput={(params) => (
-    <TextField
-      {...params}
-      label="City *"
-      fullWidth
-      size="small"
-      disabled={isOffline}
-      error={
-        !!errors.city_id ||
-        (!selectedCity?.value && formValues.city_id !== null)
-      }
-      helperText={
-        errors.city_id?.message ||
-        (!selectedCity?.value && formValues.city_id !== null
-          ? "City is required"
-          : "")
-      }
-    />
-  )}
-/>
-
-
-                            </Box>
-                        )}
-                    />
+                <Grid size={{ xs: 6 }}>
+                    <Box>
+                        <Autocomplete
+                          options={cityOptions}
+                          value={selectedCity}
+                          getOptionLabel={(option) => option?.label || ""}
+                          isOptionEqualToValue={(option, value) =>
+                            option?.value === value?.value
+                          }
+                          onChange={(_, newValue) => {
+                            setSelectedCity(newValue);
+                            setFormData(prev => ({ ...prev, city_id: newValue?.value || null }));
+                            setFormErrors(prev => ({ ...prev, city_id: newValue?.value ? "" : "City is required" }));
+                          }}
+                          onInputChange={(_, inputValue) => {
+                            setCityOptions([]);
+                            setSearchCityQuery(inputValue);
+                          }}
+                          sx={{
+                            "& .MuiOutlinedInput-root": {
+                              borderRadius: "4px",
+                            },
+                          }}
+                          renderOption={(props, option) => (
+                            <li {...props} key={option.value}>
+                              <span className="text-sm font-medium text-gray-900">
+                                {option.label}
+                              </span>
+                              {option.state && (
+                                <span className="text-xs text-gray-500">
+                                  , {option.state}
+                                </span>
+                              )}
+                            </li>
+                          )}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="City *"
+                              fullWidth
+                              size="small"
+                              disabled={isOffline}
+                              error={!!formErrors.city_id}
+                              helperText={formErrors.city_id}
+                            />
+                          )}
+                        />
+                    </Box>
                 </Grid>
 
                 <Grid size={{ xs: 6 }}>
-                <Controller
-                        name="pin_code"
-                        control={control}
-                        rules={validationRules.pin_code}
-                        render={({ field }) => (
-                            <TextField
-                                {...field}
-                                label="Pin code *"
-                                fullWidth
-                                size="small"
-                                disabled={isOffline}
-                                error={!!errors.pin_code}
-                                helperText={errors.pin_code?.message}
-                                slotProps={{
-                                    input: {
-                                        sx: {
-                                            '& .MuiOutlinedInput-notchedOutline': {
-                                                borderRadius: '4px',
-                                            },
-                                        }
-                                    }
-                                  }}
-
-                            />
-                        )}
+                    <TextField
+                        value={formData.pin_code || ""}
+                        onChange={(e) => handleFieldChange("pin_code", e.target.value)}
+                        onBlur={() => handleFieldBlur("pin_code")}
+                        label="Pin code *"
+                        fullWidth
+                        size="small"
+                        disabled={isOffline}
+                        error={!!formErrors.pin_code}
+                        helperText={formErrors.pin_code}
+                        slotProps={{
+                            input: {
+                                sx: {
+                                    '& .MuiOutlinedInput-notchedOutline': {
+                                        borderRadius: '4px',
+                                    },
+                                }
+                            }
+                          }}
                     />
                 </Grid>
                 
                 <Grid size={{ xs: 12 }}>
                     <Typography variant="subtitle1">Location on Map</Typography>
                     
-                    {/* Search Location Box */}
                     <Box sx={{ mb: 2, position: 'relative' }}>
                         <TextField
                             fullWidth
@@ -900,7 +870,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                             }}
                         />
                         
-                        {/* Search Results Dropdown */}
                         {showSearchResults && searchResults.length > 0 && (
                             <Paper
                                 sx={{
@@ -942,7 +911,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                             </Paper>
                         )}
                         
-                        {/* Loading indicator */}
                         {isSearching && (
                             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1 }}>
                                 <Typography variant="caption" color="text.secondary">
@@ -956,7 +924,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                         <Box sx={{ height: "400px", width: "100%", mb: 2, position: 'relative' }}>
                             <div id={resolvedMapContainerId} style={{ height: "100%", width: "100%" }} />
                             
-                            {/* Zoom Controls */}
                             <Box
                                 sx={{
                                     position: 'absolute',
@@ -968,7 +935,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                                     gap: 0
                                 }}
                             >
-                                {/* Zoom In Button */}
                                 <IconButton
                                     onClick={zoomIn}
                                     disabled={isOffline}
@@ -991,7 +957,6 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                                     <Add fontSize="small" />
                                 </IconButton>
                                 
-                                {/* Zoom Out Button */}
                                 <IconButton
                                     onClick={zoomOut}
                                     disabled={isOffline}
@@ -1021,14 +986,13 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 <Grid size={{ xs: 12 }}>
                     <Button 
                         variant="contained" 
-                        onClick={handleSubmit(editAddressInfo)}
+                        onClick={handleSaveAddress}
                         disabled={!isFormModified || isOffline}
                     >
                         Save
                     </Button>
                 </Grid>
             </Grid>
-            {/* 🔔 Alert Snackbar */}
             <Snackbar
                 open={alert.open}
                 anchorOrigin={{ vertical: "top", horizontal: "right" }}

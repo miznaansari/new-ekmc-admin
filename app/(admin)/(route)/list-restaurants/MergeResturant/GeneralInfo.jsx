@@ -16,54 +16,51 @@ import {
     CircularProgress,
     Tooltip
 } from "@mui/material";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Nonvegdsvg } from "../../../assets/icon/NonvegSvg";
 import { Vegdsvg } from "../../../assets/icon/VwgSvg";
 import { CafeContext, useCafe } from "../../../context/cafeContext";
-import { Controller, useForm } from "react-hook-form";
 import axios from "axios";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { CloudArrowUp24Regular } from "@fluentui/react-icons";
 import Demo from "../../../component/ImageCroper/Demo";
-const GeneralInfo = ({ cafeId, transferTargetCafeId = null, onSave = null }) => {
-    const { control, handleSubmit, reset, setValue, getValues, formState: { isDirty } } = useForm({
-        defaultValues: {
-            cafe_name: "",
-            cafe_email: "",
-            cafe_mobile_number: "",
-            cafe_slogan: "",
-            description: "",
-            is_featured: false,
-            is_most_visited: false,
-            is_new_opening: false,
-            is_veg: false,
-            is_non_veg: false,
-            status: false,
-            logo_image_id: "",
-            is_published: false,
-            show_res_menu: false,
-            allow_order: false,
-            allow_login: false,
-            allow_qr_edit: false,
-            allow_profile_edit: false,
-            allow_menu_edit: false,
-            is_user_location_required: false,
-            is_limelight: false,
-            is_hot_today: false,
-            is_daily_report: false,
-            city_id: null,
-            is_test_cafe: false,
 
-        }
-    })
+const GeneralInfo = ({ cafeId, transferTargetCafeId = null, onSave = null }) => {
+    const [formData, setFormData] = useState({
+        cafe_name: "",
+        cafe_email: "",
+        cafe_mobile_number: "",
+        cafe_slogan: "",
+        description: "",
+        is_featured: false,
+        is_most_visited: false,
+        is_new_opening: false,
+        is_veg: false,
+        is_non_veg: false,
+        status: false,
+        logo_image_id: "",
+        is_published: false,
+        show_res_menu: false,
+        allow_order: false,
+        allow_login: false,
+        allow_qr_edit: false,
+        allow_profile_edit: false,
+        allow_menu_edit: false,
+        is_user_location_required: false,
+        is_limelight: false,
+        is_hot_today: false,
+        is_daily_report: false,
+        city_id: null,
+        is_test_cafe: false,
+    });
+
     const baseUrl = process.env.NEXT_PUBLIC_VITE_REACT_APP_BACKEND_URL || "";
     const { cafeIdContext } = useCafe();
     const activeCafeId = cafeId || cafeIdContext;
-    // console.log("cafe id context in general info-", cafeIdContext)
     const [alert, setAlert] = useState({ open: false, severity: 'info', message: '' });
     const [imagePreview, setImagePreview] = useState(null);
     const [isOnline, setIsOnline] = useState(navigator.onLine);
-    const authToken = localStorage.getItem("authToken")
+    const authToken = localStorage.getItem("authToken");
     const [isFormModified, setIsFormModified] = useState(false);
     const originalFormData = useRef(null);
     const [originalImagePreview, setOriginalImagePreview] = useState(null);
@@ -71,13 +68,11 @@ const GeneralInfo = ({ cafeId, transferTargetCafeId = null, onSave = null }) => 
     const [selectedImage, setSelectedImage] = useState(null); // For crop dialog
     const [openCropDialog, setOpenCropDialog] = useState(false); // Crop dialog state
     const [aspectRatio] = useState(4 / 4);
+
     const handleCropClose = () => {
         setOpenCropDialog(false);
         setSelectedImage(null);
     };
-
-
-    // console.log("authtoken in general info= ", authToken)
 
     useEffect(() => {
         const handleOnline = () => setIsOnline(true);
@@ -92,13 +87,21 @@ const GeneralInfo = ({ cafeId, transferTargetCafeId = null, onSave = null }) => 
         };
     }, []);
 
-    //check something in form has changed or not
-useEffect(() => {
-    const imageChanged = imagePreview !== originalImagePreview;
-    setIsFormModified(isDirty || imageChanged);
-}, [isDirty, imagePreview, originalImagePreview]);
+    // Check if form data has changed
+    const checkIfDataModified = useCallback(() => {
+        if (!originalFormData.current) return false;
+        const fieldsChanged = Object.keys(formData).some(key => 
+            formData[key] !== originalFormData.current[key]
+        );
+        const imageChanged = imagePreview !== originalImagePreview;
+        return fieldsChanged || imageChanged;
+    }, [formData, imagePreview, originalImagePreview]);
 
-    //fetch cafe generalinfo by id-
+    useEffect(() => {
+        setIsFormModified(checkIfDataModified());
+    }, [checkIfDataModified]);
+
+    // Fetch cafe general info by id
     const fetchGeneralInfo = async () => {
         try {
             const response = await axios.get(`${baseUrl}/api/user/admin/restaurant-all-info/${activeCafeId}`, {
@@ -106,15 +109,10 @@ useEffect(() => {
                     Authorization: `Bearer ${authToken}`,
                     Accept: "*/*",
                 },
-            }
-
-            )
+            });
             const [data] = response.data.data;
 
-            // console.log("response in general info- ", data);
-
-            // Use reset to populate the form
-            const formData = {
+            const fetchedData = {
                 cafe_name: data.cafe_name || "",
                 cafe_email: data.cafe_email || "",
                 cafe_mobile_number: data.cafe_mobile_number || "",
@@ -140,29 +138,29 @@ useEffect(() => {
                 is_daily_report: data.is_daily_report || false,
                 city_id: data.city_id,
                 is_test_cafe: data.is_test_cafe || false,
+            };
 
-            }
-            reset(formData)
-            originalFormData.current = { ...formData }
-            setIsFormModified(false)
-            console.log("limelight- ", data.is_limelight)
-            console.log("image url outside if =", data?.cafe_logo_cf_original_image_url)
-            if (data.cafe_logo_cf_original_image_url
-            ) {
-                console.log("image url =", data.cafe_logo_cf_original_image_url)
-                setImagePreview(data.cafe_logo_cf_original_image_url
-                ); // if you want to preview image
-            }
+            setFormData(fetchedData);
+            originalFormData.current = { ...fetchedData };
+            setIsFormModified(false);
 
+            if (data.cafe_logo_cf_original_image_url) {
+                setImagePreview(data.cafe_logo_cf_original_image_url);
+                setOriginalImagePreview(data.cafe_logo_cf_original_image_url);
+            } else {
+                setImagePreview(null);
+                setOriginalImagePreview(null);
+            }
         } catch (e) {
-            console.log("error during fetch cafe details- ", e)
+            console.log("error during fetch cafe details- ", e);
         }
-    }
+    };
+
     useEffect(() => {
         if (activeCafeId) {
             fetchGeneralInfo();
         }
-    }, [activeCafeId])
+    }, [activeCafeId]);
 
     useEffect(() => {
         const handleGeneralInfoRefresh = (event) => {
@@ -177,69 +175,61 @@ useEffect(() => {
         return () => window.removeEventListener("cafe-general-updated", handleGeneralInfoRefresh);
     }, [activeCafeId]);
 
-    //EDIT GENERAL INFO
-    const hadleEditGeneralinfo = async (formData) => {
+    // Edit general info
+    const handleEditGeneralInfo = async () => {
         const updatedData = {
             ...formData,
             logo_image_id: imagePreview || "",
-            //is_limelight:formData.is_limelight ? true: false
-            //is_limelight:1
             city_id: formData.city_id || 1
-        }
+        };
         try {
             const response = await axios.post(`${baseUrl}/api/user/admin/restaurant-edit-general-information/${cafeId}`, updatedData, {
                 headers: {
                     Authorization: `Bearer ${authToken}`,
                     "Content-Type": "application/json",
                 }
-            })
+            });
 
             if (response.status === 200) {
-                setAlert({ open: true, severity: "success", message: "Restaurant updated Successfully!" })
-                originalFormData.current = { ...formData }
+                setAlert({ open: true, severity: "success", message: "Restaurant updated Successfully!" });
+                originalFormData.current = { ...formData };
                 setOriginalImagePreview(imagePreview);
                 setIsFormModified(false);
                 onSave?.();
-                fetchGeneralInfo()
-
+                fetchGeneralInfo();
             }
             console.log("response after on submit general edit info=", response);
-            if (response.data?.response?.status === 400) {
-                console.log("error message-", response.data?.response?.msg)
-            }
         } catch (e) {
-            console.log("error during submit edit general info -", e)
-            console.log("error mesage - ", e.response.data.message)
-            setAlert({ open: true, severity: "error", message: `Error: ${e.response.data.msg}` })
+            console.log("error during submit edit general info -", e);
+            setAlert({ open: true, severity: "error", message: `Error: ${e.response?.data?.msg || e.message}` });
         }
-    }
+    };
 
-    //LOGO UPLOAD
+    // Logo Upload
     const uploadImage = async (file) => {
-        const formData = new FormData();
-        formData.append("file", file)
-        formData.append("uploadType", "cafe_logo")
-        console.log("file is:", file)
-        setImageUploading(true)
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
+        uploadFormData.append("uploadType", "cafe_logo");
+        setImageUploading(true);
         try {
-            const response = await axios.post(`${baseUrl}/api/admin/cf/v1/upload`, formData, {
+            const response = await axios.post(`${baseUrl}/api/admin/cf/v1/upload`, uploadFormData, {
                 headers: {
                     Authorization: `Bearer ${authToken}`,
                     "Content-Type": "multipart/form-data"
                 }
-            })
+            });
             if (response.status === 200) {
-                setAlert({ open: true, severity: "success", message: "Uploaded successsfully" })
+                setAlert({ open: true, severity: "success", message: "Uploaded successfully" });
             }
-            console.log("response in upload image- ", response);
-            const imageUrl = response.data?.customUrl
-            setImagePreview(imageUrl)
+            const imageUrl = response.data?.customUrl;
+            setImagePreview(imageUrl);
         } catch (e) {
-            console.log("error during image upload- ", e)
+            console.log("error during image upload- ", e);
         } finally {
-            setImageUploading(false)
+            setImageUploading(false);
         }
-    }
+    };
+
     const handleFileChange = async (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -247,10 +237,11 @@ useEffect(() => {
             setSelectedImage(imageUrl);
             setOpenCropDialog(true);
         }
-    }
+    };
+
     const handleRemoveImage = () => {
-        setImagePreview()
-    }
+        setImagePreview(null);
+    };
 
     const handleCopyLogoToTarget = async () => {
         if (!transferTargetCafeId) {
@@ -316,7 +307,7 @@ useEffect(() => {
 
             setAlert({ open: true, severity: "success", message: `Logo copied to cafe ${transferTargetCafeId}` });
         } catch (e) {
-            console.log("error during logo copy - ", e)
+            console.log("error during logo copy - ", e);
             setAlert({ open: true, severity: "error", message: "Failed to copy logo" });
         }
     };
@@ -328,7 +319,7 @@ useEffect(() => {
         }
 
         try {
-            const currentValues = getValues();
+            const currentValues = formData;
 
             const targetInfoResponse = await axios.get(`${baseUrl}/api/user/admin/restaurant-all-info/${transferTargetCafeId}`, {
                 headers: {
@@ -384,10 +375,11 @@ useEffect(() => {
 
             setAlert({ open: true, severity: "success", message: `${fieldLabel} copied to cafe ${transferTargetCafeId}` });
         } catch (e) {
-            console.log("error during field copy - ", e)
+            console.log("error during field copy - ", e);
             setAlert({ open: true, severity: "error", message: `Failed to copy ${fieldLabel}` });
         }
     };
+
     return (
         <>
             <Paper sx={{ p: 0 }}>
@@ -467,8 +459,6 @@ useEffect(() => {
                         </Stack>
                         <Typography variant="body2" color="text.secondary">Allowed file types: png, jpg, jpeg.</Typography>
                         <input type="file" accept="image/png,image/jpg,image/jpeg" style={{ display: "none" }}
-                            // ref={fileInputRef} 
-                            // onChange={handleFileChange} 
                             disabled={!isOnline}
                         />
                     </Box>
@@ -476,440 +466,323 @@ useEffect(() => {
 
                 <Grid container spacing={2} sx={{ mt: 1 }}>
                     <Grid size={{ xs: 12, md: 12 }}>
-                        <Controller
-                            name="cafe_name"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    size="small"
-                                    label="Restaurant Name"
-                                    variant="outlined"
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    disabled={!isOnline}
-                                    slotProps={{
-                                        input: {
-                                            endAdornment: transferTargetCafeId ? (
-                                                <InputAdornment position="end">
-                                                    <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
-                                                        <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_name", "Cafe Name")}>
-                                                            <ContentCopyIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </InputAdornment>
-                                            ) : undefined,
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-
-                                />
-                            )}
+                        <TextField
+                            value={formData.cafe_name || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, cafe_name: e.target.value }))}
+                            size="small"
+                            label="Restaurant Name"
+                            variant="outlined"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            disabled={!isOnline}
+                            slotProps={{
+                                input: {
+                                    endAdornment: transferTargetCafeId ? (
+                                        <InputAdornment position="end">
+                                            <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
+                                                <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_name", "Cafe Name")}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, md: 12 }}>
-                        <Controller
-                            name="cafe_slogan"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    size="small"
-                                    label="Slogan"
-                                    variant="outlined"
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    disabled={!isOnline}
-                                    slotProps={{
-                                        input: {
-                                            endAdornment: transferTargetCafeId ? (
-                                                <InputAdornment position="end">
-                                                    <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
-                                                        <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_slogan", "Slogan")}>
-                                                            <ContentCopyIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </InputAdornment>
-                                            ) : undefined,
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-
-                                />
-                            )}
+                        <TextField
+                            value={formData.cafe_slogan || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, cafe_slogan: e.target.value }))}
+                            size="small"
+                            label="Slogan"
+                            variant="outlined"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            disabled={!isOnline}
+                            slotProps={{
+                                input: {
+                                    endAdornment: transferTargetCafeId ? (
+                                        <InputAdornment position="end">
+                                            <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
+                                                <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_slogan", "Slogan")}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, md: 12 }}>
-                        <Controller
-                            name="cafe_email"
-                            control={control}
-                            render={({ field, fieldState: { error }  }) => (
-                                <TextField
-                                    {...field}
-                                    size="small"
-                                    label="Email"
-                                    variant="outlined"
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    disabled={!isOnline}
-
-                                    slotProps={{
-                                        input: {
-                                            endAdornment: transferTargetCafeId ? (
-                                                <InputAdornment position="end">
-                                                    <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
-                                                        <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_email", "Email")}>
-                                                            <ContentCopyIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </InputAdornment>
-                                            ) : undefined,
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-
-                                />
-                            )}
+                        <TextField
+                            value={formData.cafe_email || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, cafe_email: e.target.value }))}
+                            size="small"
+                            label="Email"
+                            variant="outlined"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            disabled={!isOnline}
+                            slotProps={{
+                                input: {
+                                    endAdornment: transferTargetCafeId ? (
+                                        <InputAdornment position="end">
+                                            <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
+                                                <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_email", "Email")}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, md: 12 }}>
-                        <Controller
-                            name="cafe_mobile_number"
-                            control={control}
-                       
-                            render={({ field, fieldState: { error } }) => (
-                                <TextField
-                                    {...field}
-                                    type="text"
-                                    label="Phone Number"
-                                    size="small"
-                                    variant="outlined"
-                                    fullWidth
-                                    error={!!error}
-                                    helperText={error?.message}
-                                    InputLabelProps={{ shrink: true }}
-                                    disabled={!isOnline}
-                                    inputProps={{
-                                        inputMode: 'numeric',
-                                    }}
-                                    onChange={(e) => {
-                                        const digitsOnly = e.target.value.replace(/\D/g, "");
-                                        field.onChange(digitsOnly);
-                                    }}
-                                    slotProps={{
-                                        input: {
-                                            endAdornment: transferTargetCafeId ? (
-                                                <InputAdornment position="end">
-                                                    <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
-                                                        <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_mobile_number", "Phone Number")}>
-                                                            <ContentCopyIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </InputAdornment>
-                                            ) : undefined,
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            },
-                                        }
-                                    }}
-                                />
-                            )}
+                        <TextField
+                            value={formData.cafe_mobile_number || ""}
+                            type="text"
+                            label="Phone Number"
+                            size="small"
+                            variant="outlined"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            disabled={!isOnline}
+                            inputProps={{
+                                inputMode: 'numeric',
+                            }}
+                            onChange={(e) => {
+                                const digitsOnly = e.target.value.replace(/\D/g, "");
+                                setFormData(prev => ({ ...prev, cafe_mobile_number: digitsOnly }));
+                            }}
+                            slotProps={{
+                                input: {
+                                    endAdornment: transferTargetCafeId ? (
+                                        <InputAdornment position="end">
+                                            <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
+                                                <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("cafe_mobile_number", "Phone Number")}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    },
+                                }
+                            }}
                         />
-
-
                     </Grid>
                     <Grid size={{ xs: 12 }}>
-                        <Controller
-                            name="description"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    size="small"
-                                    multiline
-                                    rows={4}
-                                    label="Restaurant Description"
-                                    variant="outlined"
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    disabled={!isOnline}
-                                    slotProps={{
-                                        input: {
-                                            endAdornment: transferTargetCafeId ? (
-                                                <InputAdornment position="end">
-                                                    <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
-                                                        <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("description", "Description")}>
-                                                            <ContentCopyIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </InputAdornment>
-                                            ) : undefined,
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-
-                                />
-                            )}
+                        <TextField
+                            value={formData.description || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                            size="small"
+                            multiline
+                            rows={4}
+                            label="Restaurant Description"
+                            variant="outlined"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            disabled={!isOnline}
+                            slotProps={{
+                                input: {
+                                    endAdornment: transferTargetCafeId ? (
+                                        <InputAdornment position="end">
+                                            <Tooltip title={`Copy to ${transferTargetCafeId}`} arrow>
+                                                <IconButton edge="end" size="small" onClick={() => handleCopyFieldToTarget("description", "Description")}>
+                                                    <ContentCopyIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
-
                 </Grid>
+
                 {/* Feature Tags */}
                 <Typography variant="body1" sx={{ mt: 2 }}>Feature Tags</Typography>
                 <Grid container spacing={1} alignItems="center">
                     <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Controller
-                            name="is_featured"
-                            control={control}
-                            render={({ field }) => (
-                                <Checkbox
-                                    {...field}
-                                    checked={Boolean(field.value)}
-                                    onChange={(e) => field.onChange(e.target.checked)}
-                                    disabled={!isOnline}
-                                    sx={{
-                                        color: 'secondary.main',
-                                        '&.Mui-checked': {
-                                            color: 'secondary.main',
-                                        },
-                                    }}
-                                />
-                            )}
+                        <Checkbox
+                            checked={Boolean(formData.is_featured)}
+                            onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
+                            disabled={!isOnline}
+                            sx={{
+                                color: 'secondary.main',
+                                '&.Mui-checked': {
+                                    color: 'secondary.main',
+                                },
+                            }}
                         />
                         <Typography>Featured</Typography>
                     </Grid>
 
                     <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Controller
-                            name="is_most_visited"
-                            control={control}
-                            render={({ field }) => (
-                                <Checkbox
-                                    {...field}
-                                    checked={Boolean(field.value)}
-                                    onChange={(e) => field.onChange(e.target.checked)}
-                                    disabled={!isOnline}
-                                    sx={{
-                                        color: 'secondary.main',
-                                        '&.Mui-checked': {
-                                            color: 'secondary.main',
-                                        },
-                                    }}
-                                />
-                            )}
+                        <Checkbox
+                            checked={Boolean(formData.is_most_visited)}
+                            onChange={(e) => setFormData(prev => ({ ...prev, is_most_visited: e.target.checked }))}
+                            disabled={!isOnline}
+                            sx={{
+                                color: 'secondary.main',
+                                '&.Mui-checked': {
+                                    color: 'secondary.main',
+                                },
+                            }}
                         />
                         <Typography>Most-Visited</Typography>
                     </Grid>
 
                     <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <Controller
-                            name="is_new_opening"
-                            control={control}
-                            render={({ field }) => (
-                                <Checkbox
-                                    {...field}
-                                    checked={Boolean(field.value)}
-                                    onChange={(e) => field.onChange(e.target.checked)}
-                                    disabled={!isOnline}
-                                    sx={{
-                                        color: 'secondary.main',
-                                        '&.Mui-checked': {
-                                            color: 'secondary.main',
-                                        },
-                                    }}
-                                />
-                            )}
+                        <Checkbox
+                            checked={Boolean(formData.is_new_opening)}
+                            onChange={(e) => setFormData(prev => ({ ...prev, is_new_opening: e.target.checked }))}
+                            disabled={!isOnline}
+                            sx={{
+                                color: 'secondary.main',
+                                '&.Mui-checked': {
+                                    color: 'secondary.main',
+                                },
+                            }}
                         />
                         <Typography>New Opening</Typography>
                     </Grid>
                 </Grid>
-
 
                 {/* Food types */}
                 <Typography variant="body1" sx={{ mt: 2 }}>Food Type</Typography>
                 <Grid container alignItems="center">
                     <Grid container spacing={1} alignItems="center" gap={1}>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            {/* <Checkbox 
-                            //checked={data.is_non_veg === 1} 
-                            sx={{
-                            color: 'secondary.main',
-                            '&.Mui-checked': {
-                                color: 'secondary.main',
-                            },
-                        }} 
-                        //onChange={handleCheckboxChange("is_non_veg")} 
-                        disabled={!isOnline} 
-                    /> */}
-                            <Controller
-                                name="is_non_veg"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_non_veg)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_non_veg: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Nonvegdsvg />
                             <Typography>Non-Veg</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_veg"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_veg)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_veg: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Vegdsvg />
                             <Typography>Veg</Typography>
                         </Grid>
                     </Grid>
                 </Grid>
+
                 {/* Menu Options */}
                 <Typography variant="body1" sx={{ mt: 2 }}>Menu Options</Typography>
                 <Grid container alignItems="center">
                     <Grid container spacing={1} alignItems="center" gap={1}>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="allow_order"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.allow_order)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, allow_order: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Order</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="allow_qr_edit"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.allow_qr_edit)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, allow_qr_edit: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Qr Edit</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="allow_login"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.allow_login)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, allow_login: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Login</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="allow_menu_edit"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.allow_menu_edit)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, allow_menu_edit: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Menu Edit</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="allow_profile_edit"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.allow_profile_edit)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, allow_profile_edit: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Edit Profile</Typography>
                         </Grid>
@@ -918,180 +791,119 @@ useEffect(() => {
 
                 {/* Status */}
                 <Typography variant="body1" sx={{ mt: 2 }}>Status</Typography>
-
                 <Grid container alignItems="center">
                     <Grid container spacing={1} alignItems="center" gap={1}>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_user_location_required"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_user_location_required)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_user_location_required: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>User Location Required</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="status"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.status)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Status</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_published"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_published)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_published: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Published</Typography>
                         </Grid>
 
-
-
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_test_cafe"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_test_cafe)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_test_cafe: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Test Cafe</Typography>
                         </Grid>
 
-
-
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_limelight"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_limelight)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_limelight: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Limelight</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_hot_today"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_hot_today)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_hot_today: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Hot Today</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_featured"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_featured)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_featured: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Featured</Typography>
                         </Grid>
                         <Grid size="auto" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Controller
-                                name="is_daily_report"
-                                control={control}
-                                render={({ field }) => (
-                                    <Checkbox
-                                        {...field}
-                                        checked={Boolean(field.value)}
-                                        onChange={(e) => field.onChange(e.target.checked)}
-                                        disabled={!isOnline}
-                                        sx={{
-                                            color: 'secondary.main',
-                                            '&.Mui-checked': {
-                                                color: 'secondary.main',
-                                            },
-                                        }}
-                                    />
-                                )}
+                            <Checkbox
+                                checked={Boolean(formData.is_daily_report)}
+                                onChange={(e) => setFormData(prev => ({ ...prev, is_daily_report: e.target.checked }))}
+                                disabled={!isOnline}
+                                sx={{
+                                    color: 'secondary.main',
+                                    '&.Mui-checked': {
+                                        color: 'secondary.main',
+                                    },
+                                }}
                             />
                             <Typography>Daily Report</Typography>
                         </Grid>
@@ -1100,8 +912,7 @@ useEffect(() => {
 
                 <Box sx={{ display: "flex", mt: 2 }}>
                     <Button variant="contained"
-                        onClick={handleSubmit(hadleEditGeneralinfo)}
-
+                        onClick={handleEditGeneralInfo}
                         disabled={!isFormModified || !isOnline}
                     >
                         Save
@@ -1120,7 +931,7 @@ useEffect(() => {
                 setOpenCropDialog={setOpenCropDialog}
             />
         </>
-
     );
 }
+
 export default GeneralInfo;

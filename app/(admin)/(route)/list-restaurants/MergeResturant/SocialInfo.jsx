@@ -1,22 +1,19 @@
 import { Alert, Box, Button, Grid, IconButton, InputAdornment, Paper, Snackbar, TextField, Tooltip, Typography } from "@mui/material";
 import axios from "axios";
 import { useEffect, useState, useCallback } from "react";
-import { Controller, useForm } from "react-hook-form";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 
 const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
-    const { control, handleSubmit, reset, getValues, watch } = useForm({
-        defaultValues: {
-            social_facebook_url: "",
-            social_instagram_url: "",
-            social_linkedin_url: "",
-            social_twitter_url: "",
-            website_url: "",
-            zomato_url: "",
-            swiggy_url: "",
-            google_map_url: "",
-            dineout_url: ""
-        }
+    const [formData, setFormData] = useState({
+        social_facebook_url: "",
+        social_instagram_url: "",
+        social_linkedin_url: "",
+        social_twitter_url: "",
+        website_url: "",
+        zomato_url: "",
+        swiggy_url: "",
+        google_map_url: "",
+        dineout_url: ""
     });
     
     console.log("cafe id in ", cafeId);
@@ -30,26 +27,21 @@ const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
     const [initialFormValues, setInitialFormValues] = useState(null);
     const [isFormModified, setIsFormModified] = useState(false);
     const [copyingField, setCopyingField] = useState(null);
-    
-    // Watch all form fields for changes
-    const formValues = watch();
 
     // Check if form data is modified compared to initial data
     const checkIfDataModified = useCallback(() => {
         if (!initialFormValues) return false;
         
-        const currentValues = getValues();
-        
         // Compare each field
-        return Object.keys(currentValues).some(key => 
-            currentValues[key] !== initialFormValues[key]
+        return Object.keys(formData).some(key => 
+            formData[key] !== initialFormValues[key]
         );
-    }, [getValues, initialFormValues]);
+    }, [formData, initialFormValues]);
 
     // Update the modified status whenever form values change
     useEffect(() => {
         setIsFormModified(checkIfDataModified());
-    }, [formValues, checkIfDataModified]);
+    }, [formData, checkIfDataModified]);
 
     const showAlert = (severity, message) => {
         setAlert({ open: true, severity, message });
@@ -70,7 +62,7 @@ const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
             const [data] = response.data?.data;
             
             // Prepare normalized data
-            const formData = {
+            const normData = {
                 social_facebook_url: data.social_facebook_url || "",
                 social_instagram_url: data.social_instagram_url || "",
                 social_linkedin_url: data.social_linkedin_url || "",
@@ -82,11 +74,10 @@ const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                 dineout_url: data.dineout_url || ""
             };
             
-            // Reset form with data
-            reset(formData);
+            setFormData(normData);
             
             // Store initial values for comparison
-            setInitialFormValues({...formData});
+            setInitialFormValues({...normData});
             
             // Reset modification status
             setIsFormModified(false);
@@ -165,7 +156,7 @@ const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
         try {
             setCopyingField(fieldName);
 
-            const sourceValues = getValues();
+            const sourceValues = formData;
 
             const targetResponse = await axios.get(`${baseUrl}/api/user/admin/restaurant-all-info/${transferTargetCafeId}`, {
                 headers: {
@@ -236,45 +227,40 @@ const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                 <Grid container spacing={2}>
                     {socialFields.map(({ name, label }) => (
                         <Grid size={{ xs: 12, md: 12 }} key={name}>
-                            <Controller
-                                name={name}
-                                control={control}
-                                render={({ field }) => (
-                                    <TextField
-                                        {...field}
-                                        label={label}
-                                        variant="outlined"
-                                        fullWidth
-                                        size="small"
-                                        multiline
-                                        InputLabelProps={{ shrink: true }}
-                                        slotProps={{
-                                            input: {
-                                                endAdornment: transferTargetCafeId ? (
-                                                    <InputAdornment position="end">
-                                                        <Tooltip title={`Copy ${label} to ${transferTargetCafeId}`} arrow>
-                                                            <span>
-                                                                <IconButton
-                                                                    edge="end"
-                                                                    size="small"
-                                                                    onClick={() => handleCopyFieldToTarget(name, label)}
-                                                                    disabled={copyingField === name}
-                                                                >
-                                                                    <ContentCopyIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </span>
-                                                        </Tooltip>
-                                                    </InputAdornment>
-                                                ) : undefined,
-                                                sx: {
-                                                  '& .MuiOutlinedInput-notchedOutline': {
-                                                   borderRadius: '4px',
-                                                  },
-                                                }
-                                            }
-                                        }}
-                                    />
-                                )}
+                            <TextField
+                                value={formData[name] || ""}
+                                onChange={(e) => setFormData(prev => ({ ...prev, [name]: e.target.value }))}
+                                label={label}
+                                variant="outlined"
+                                fullWidth
+                                size="small"
+                                multiline
+                                InputLabelProps={{ shrink: true }}
+                                slotProps={{
+                                    input: {
+                                        endAdornment: transferTargetCafeId ? (
+                                            <InputAdornment position="end">
+                                                <Tooltip title={`Copy ${label} to ${transferTargetCafeId}`} arrow>
+                                                    <span>
+                                                        <IconButton
+                                                            edge="end"
+                                                            size="small"
+                                                            onClick={() => handleCopyFieldToTarget(name, label)}
+                                                            disabled={copyingField === name}
+                                                        >
+                                                            <ContentCopyIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
+                                            </InputAdornment>
+                                        ) : undefined,
+                                        sx: {
+                                          '& .MuiOutlinedInput-notchedOutline': {
+                                           borderRadius: '4px',
+                                          },
+                                        }
+                                    }
+                                }}
                             />
                         </Grid>
                     ))}
@@ -284,7 +270,7 @@ const SocialInfo = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={handleSubmit(handleSubmitSocialInfo)}
+                        onClick={() => handleSubmitSocialInfo(formData)}
                         disabled={!isFormModified}
                     >
                         Save

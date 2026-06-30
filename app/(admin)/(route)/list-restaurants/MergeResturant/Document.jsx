@@ -1,22 +1,19 @@
 import { Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, FormLabel, Grid, Paper, Radio, RadioGroup, Snackbar, Stack, TextField, Typography } from "@mui/material";
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
 import UploadCloudIcon from "../../../assets/icon/UploadCloudIcon";
 
 const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
-    const { control, handleSubmit, reset, setValue, getValues, watch } = useForm({
-        defaultValues: {
-            fssai_certificate_url: "",
-            fssai_licence_number: "",
-            gst_certificate_url: "",
-            gst_number: "",
-            trade_name: "",
-            legal_name: "",
-            registered_on: "",
-            is_fassai: 0,
-            is_gst: 0
-        }
+    const [formData, setFormData] = useState({
+        fssai_certificate_url: "",
+        fssai_licence_number: "",
+        gst_certificate_url: "",
+        gst_number: "",
+        trade_name: "",
+        legal_name: "",
+        registered_on: "",
+        is_fassai: 0,
+        is_gst: 0
     });
     
     const baseUrl = process.env.NEXT_PUBLIC_VITE_REACT_APP_BACKEND_URL || ""; 
@@ -25,8 +22,8 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
     const [gstCertificateUrl, setGstCertificateUrl] = useState(null);
     const [fssaiUrl, setFssiUrl] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const [gstUploading, setGstUploading]=useState(false);
-    const [fssaiUploading, setFssaiUploading]=useState(false);
+    const [gstUploading, setGstUploading] = useState(false);
+    const [fssaiUploading, setFssaiUploading] = useState(false);
 
     const [initialFormValues, setInitialFormValues] = useState({});
     const [isFormModified, setIsFormModified] = useState(false);
@@ -36,8 +33,12 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
         message: ""
     });
 
-    const isGst = watch("is_gst");
-    const isFssai = watch("is_fassai");
+    const isGst = formData.is_gst;
+    const isFssai = formData.is_fassai;
+
+    const setValue = (key, value) => {
+        setFormData(prev => ({ ...prev, [key]: value }));
+    };
     
     const showAlert = (severity, message) => {
         setAlert({ open: true, severity, message });
@@ -46,19 +47,15 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
         }, 3000);
     };
 
-    const formValues = watch();
-
     // Improved comparison function with proper type handling
     const checkIfDataModified = useCallback(() => {
         if (!initialFormValues || Object.keys(initialFormValues).length === 0) return false;
         
-        const currentValues = getValues();
-        
         // Compare each field with proper type handling
-        return Object.keys(currentValues).some(key => {
+        return Object.keys(formData).some(key => {
             // Convert to the same type before comparison
             let initialValue = initialFormValues[key];
-            let currentValue = currentValues[key];
+            let currentValue = formData[key];
             
             // Handle specific type conversions
             if (key === "is_gst" || key === "is_fassai") {
@@ -68,11 +65,11 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
             
             return currentValue !== initialValue;
         });
-    }, [getValues, initialFormValues]);
+    }, [formData, initialFormValues]);
 
     useEffect(() => {
         setIsFormModified(checkIfDataModified());
-    }, [formValues, checkIfDataModified]);
+    }, [formData, checkIfDataModified]);
 
     // Fetch document details
     const fetchDocumentDetails = async() => {
@@ -85,8 +82,7 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
             
             const [data] = response.data?.data || [{}];
             
-            // Process data for form - Fixed the boolean/number conversion
-            const formData = {
+            const fetchedData = {
                 fssai_certificate_url: data.fssai_certificate_url || "",
                 fssai_licence_number: data.fssai_licence_number || "",
                 gst_certificate_url: data.gst_certificate_url || "",
@@ -98,10 +94,8 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                 is_gst: data.is_gst === true || data.is_gst === 1 ? 1 : 0
             };
             
-            reset(formData);
-            
-            // Set initial values with same structure as form data
-            setInitialFormValues(formData);
+            setFormData(fetchedData);
+            setInitialFormValues(fetchedData);
             setIsFormModified(false);
             
         } catch(e) {
@@ -117,25 +111,24 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
 
     // PDF GST upload API
     const handleGstFileUpload = async(file) => {
-        const formData = new FormData();
-        formData.append("file", file);
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
         
         try {
             setUploading(true);
             setGstUploading(true);
-            const response = await axios.post(`${baseUrl}/api/user/admin/uploadFile`, formData, {
+            const response = await axios.post(`${baseUrl}/api/user/admin/uploadFile`, uploadFormData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "multipart/form-data"
                 }
             });
-            console.log("gst response- ", response.status)
+            console.log("gst response- ", response.status);
             setGstCertificateUrl(response.data);
             setAlert({open: true, severity: "success", message: "GST file uploaded!"});
             
             if(response.status === 200){
-              setValue("gst_certificate_url", response.data, { shouldDirty: true });
-
+                setValue("gst_certificate_url", response.data);
             }
             
         } catch(e) {
@@ -149,13 +142,13 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
 
     // FSSAI certificate upload
     const handleFssaiFileUpload = async(file) => {
-        const formData = new FormData();
-        formData.append("file", file);
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", file);
         
         try {
             setUploading(true);
             setFssaiUploading(true);
-            const response = await axios.post(`${baseUrl}/api/user/admin/uploadFile`, formData, {
+            const response = await axios.post(`${baseUrl}/api/user/admin/uploadFile`, uploadFormData, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "multipart/form-data"
@@ -165,8 +158,7 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
             setFssiUrl(response.data);
             setAlert({open: true, severity: "success", message: "FSSAI file uploaded!"});
             if(response.status === 200){
-              setValue("fssai_certificate_url", response.data, { shouldDirty: true });
-
+                setValue("fssai_certificate_url", response.data);
             }
             
         } catch(e) {
@@ -179,29 +171,27 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
     };
 
     // On submit documents
-    const handleSubmitDocuments = async(data) => {
+    const handleSubmitDocuments = async() => {
         const payload = {
-            gst_number: data.gst_number,
-            fssai_licence_number: data.fssai_licence_number,
-            gst_certificate_url: gstCertificateUrl || data.gst_certificate_url,
-            fssai_certificate_url: fssaiUrl || data.fssai_certificate_url,
-            is_gst: data.is_gst,
-            trade_name: data.trade_name,
-            legal_name: data.legal_name,
-            registered_on: data.registered_on || "0.0.0",
-            is_fassai: data.is_fassai
+            gst_number: formData.gst_number,
+            fssai_licence_number: formData.fssai_licence_number,
+            gst_certificate_url: gstCertificateUrl || formData.gst_certificate_url,
+            fssai_certificate_url: fssaiUrl || formData.fssai_certificate_url,
+            is_gst: formData.is_gst,
+            trade_name: formData.trade_name,
+            legal_name: formData.legal_name,
+            registered_on: formData.registered_on || "0.0.0",
+            is_fassai: formData.is_fassai
         };
         
         try {
-            const response = await axios.put(`${baseUrl}/api/cafe-settings/v1/doc/${cafeId}`, payload, {
+            await axios.put(`${baseUrl}/api/cafe-settings/v1/doc/${cafeId}`, payload, {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
             });
             
-            // After successful save, update the initial values and reset modified state
-            const updatedFormData = getValues();
-            setInitialFormValues(updatedFormData);
+            setInitialFormValues(formData);
             setIsFormModified(false);
             
             setAlert({open: true, severity: "success", message: "Document Info updated!"});
@@ -227,128 +217,101 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
             
             {/* Taxation Details */}
             <Typography variant="h5">Legal Documentation</Typography>
-            <Stack>
+            <Box>
                 <Typography variant="h6" sx={{ pt: 1, color: '#00000099' }}>Taxation Details</Typography>
-                <Controller
-                    name="is_gst"
-                    control={control}
-                    render={({ field }) => (
-                        <FormControl component="fieldset">
-                            <RadioGroup
-                                {...field}
-                                row
-                                value={field.value === 1 ? "1" : "0"}
-                                onChange={(e) => field.onChange(parseInt(e.target.value))}
-                            >
-                                <FormControlLabel value="1" control={<Radio color="secondary" />} label="Yes" />
-                                <FormControlLabel value="0" control={<Radio color="secondary" />} label="No" />
-                            </RadioGroup>
-                        </FormControl>
-                    )}
-                />
+                <FormControl component="fieldset">
+                    <RadioGroup
+                        row
+                        value={formData.is_gst === 1 ? "1" : "0"}
+                        onChange={(e) => setFormData(prev => ({ ...prev, is_gst: parseInt(e.target.value) }))}
+                    >
+                        <FormControlLabel value="1" control={<Radio color="secondary" />} label="Yes" />
+                        <FormControlLabel value="0" control={<Radio color="secondary" />} label="No" />
+                    </RadioGroup>
+                </FormControl>
                 <Grid container spacing={1.5} sx={{pt:1}}>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <Controller
-                            name="gst_number"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    size="small"
-                                    label={"GST Number"}
-                                    variant="outlined"
-                                    disabled={isGst === 0}
-                                    slotProps={{
-                                        input: {
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-                                />
-                            )}
+                        <TextField
+                            value={formData.gst_number || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, gst_number: e.target.value }))}
+                            fullWidth
+                            size="small"
+                            label={"GST Number"}
+                            variant="outlined"
+                            disabled={isGst === 0}
+                            slotProps={{
+                                input: {
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <Controller
-                            name="trade_name"
-                            control={control}
-                            render={({field}) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    size="small"
-                                    label="Business Trade Name"
-                                    variant="outlined"
-                                    disabled={isGst === 0}
-                                    slotProps={{
-                                        input: {
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-                                />
-                            )}
+                        <TextField
+                            value={formData.trade_name || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, trade_name: e.target.value }))}
+                            fullWidth
+                            size="small"
+                            label="Business Trade Name"
+                            variant="outlined"
+                            disabled={isGst === 0}
+                            slotProps={{
+                                input: {
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
                         <Box>
-                            <Controller
-                                name="legal_name"
-                                control={control}
-                                render={({field}) => (
-                                    <TextField
-                                        {...field}
-                                        fullWidth
-                                        size="small"
-                                        label="Business Legal Name"
-                                        variant="outlined"
-                                        disabled={isGst === 0}
-                                        slotProps={{
-                                            input: {
-                                                sx: {
-                                                    '& .MuiOutlinedInput-notchedOutline': {
-                                                        borderRadius: '4px',
-                                                    },
-                                                }
-                                            }
-                                        }}
-                                    />
-                                )}
+                            <TextField
+                                value={formData.legal_name || ""}
+                                onChange={(e) => setFormData(prev => ({ ...prev, legal_name: e.target.value }))}
+                                fullWidth
+                                size="small"
+                                label="Business Legal Name"
+                                variant="outlined"
+                                disabled={isGst === 0}
+                                slotProps={{
+                                    input: {
+                                        sx: {
+                                            '& .MuiOutlinedInput-notchedOutline': {
+                                                borderRadius: '4px',
+                                            },
+                                        }
+                                    }
+                                }}
                             />
                         </Box>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <Controller
-                            name="registered_on"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    type="date"
-                                    label="GST Registration On"
-                                    variant="outlined"
-                                    size="small"
-                                    InputLabelProps={{ shrink: true }}
-                                    disabled={isGst === 0}
-                                    slotProps={{
-                                        input: {
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-                                />
-                            )}
+                        <TextField
+                            value={formData.registered_on || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, registered_on: e.target.value }))}
+                            fullWidth
+                            type="date"
+                            label="GST Registration On"
+                            variant="outlined"
+                            size="small"
+                            InputLabelProps={{ shrink: true }}
+                            disabled={isGst === 0}
+                            slotProps={{
+                                input: {
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
@@ -367,7 +330,6 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                                         id="gst-file-upload"
                                         type="file"
                                         hidden
-                                        // disabled={isTax === 0}
                                         disabled
                                         accept=".pdf,.jpg,.jpeg,.png,image/*"
                                         onChange={(e) => {
@@ -393,52 +355,40 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                         </label>
                     </Grid>
                 </Grid>
-            </Stack>  
+            </Box>  
 
             {/* FSSAI CERTIFICATE */}
             <Stack sx={{pt:1}}>
                 <Typography variant="h6" sx={{ mb: 2, color:'#00000099' }}>FSSAI Certificate (PDF only)</Typography>
-                <Controller
-                    name="is_fassai"
-                    control={control}
-                    render={({ field }) => (
-                        <FormControl component="fieldset">
-                            <RadioGroup
-                                {...field}
-                                row
-                                value={field.value === 1 ? "1" : "0"}
-                                onChange={(e) => field.onChange(parseInt(e.target.value))}
-                            >
-                                <FormControlLabel value="1" control={<Radio color="secondary" />} label="Yes" />
-                                <FormControlLabel value="0" control={<Radio color="secondary" />} label="No" />
-                            </RadioGroup>
-                        </FormControl>
-                    )}
-                />
+                <FormControl component="fieldset">
+                    <RadioGroup
+                        row
+                        value={formData.is_fassai === 1 ? "1" : "0"}
+                        onChange={(e) => setFormData(prev => ({ ...prev, is_fassai: parseInt(e.target.value) }))}
+                    >
+                        <FormControlLabel value="1" control={<Radio color="secondary" />} label="Yes" />
+                        <FormControlLabel value="0" control={<Radio color="secondary" />} label="No" />
+                    </RadioGroup>
+                </FormControl>
                 <Grid container spacing={1} sx={{ mt: 1 }}>
                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <Controller
-                            name="fssai_licence_number"
-                            control={control}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    fullWidth
-                                    size="small"
-                                    label={"FSSAI License No."}
-                                    variant="outlined"
-                                    disabled={isFssai === 0}
-                                    slotProps={{
-                                        input: {
-                                            sx: {
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderRadius: '4px',
-                                                },
-                                            }
-                                        }
-                                    }}
-                                />
-                            )}
+                        <TextField
+                            value={formData.fssai_licence_number || ""}
+                            onChange={(e) => setFormData(prev => ({ ...prev, fssai_licence_number: e.target.value }))}
+                            fullWidth
+                            size="small"
+                            label={"FSSAI License No."}
+                            variant="outlined"
+                            disabled={isFssai === 0}
+                            slotProps={{
+                                input: {
+                                    sx: {
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderRadius: '4px',
+                                        },
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
                     
@@ -458,7 +408,6 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                                         id="fssai-file-upload"
                                         type="file"
                                         hidden
-                                        // disabled={isFssai === 0}
                                         disabled
                                         accept=".pdf,.jpg,.jpeg,.png,image/*"
                                         onChange={(e) => {
@@ -488,7 +437,7 @@ const Document = ({cafeId, transferTargetCafeId = null, onSave = null}) => {
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={handleSubmit(handleSubmitDocuments)}
+                        onClick={handleSubmitDocuments}
                         disabled={!isFormModified}
                     >
                         Save
