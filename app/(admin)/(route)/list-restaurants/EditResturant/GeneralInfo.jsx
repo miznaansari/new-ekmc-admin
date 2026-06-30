@@ -17,7 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { Nonvegdsvg } from "../../../assets/icon/NonvegSvg";
 import { Vegdsvg } from "../../../assets/icon/VwgSvg";
 import { CafeContext, useCafe } from "../../../context/cafeContext";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm } from "@/app/(admin)/utils/nativeForm";
 import axios from "axios";
 import { CloudArrowUp24Regular } from "@fluentui/react-icons";
 import Demo from "../../../component/ImageCroper/Demo";

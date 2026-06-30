@@ -14,7 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import axios from "axios";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm } from "@/app/(admin)/utils/nativeForm";
 import { useTheme } from "@mui/material/styles";
 
 const ExpandableTable = ({ cafeId }) => {
