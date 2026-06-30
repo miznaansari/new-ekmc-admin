@@ -1,5 +1,5 @@
 import { Alert, Box, Button, Grid, Paper, Snackbar, TextField, Typography } from "@mui/material";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useEffect, useState, useCallback } from "react";
 const SocialInfo = ({cafeId}) => {
     const [formData, setFormData] = useState({

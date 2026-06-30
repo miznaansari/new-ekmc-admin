@@ -1,6 +1,6 @@
 import { Alert, Autocomplete, Box, Button, Grid, Paper, Snackbar, TextField, Typography, InputAdornment, IconButton } from "@mui/material";
 import { Search, MyLocation, Clear, Add, Remove } from "@mui/icons-material";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useEffect, useState, useCallback, useRef } from "react";
 
 const extractPincode = (addressComponents) => {

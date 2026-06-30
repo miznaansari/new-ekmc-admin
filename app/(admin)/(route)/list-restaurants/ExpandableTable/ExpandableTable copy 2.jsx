@@ -14,7 +14,7 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { Controller, useForm } from "@/app/(admin)/utils/nativeForm";
 import { useTheme } from "@mui/material/styles";
 

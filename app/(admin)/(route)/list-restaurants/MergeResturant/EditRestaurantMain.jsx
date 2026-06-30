@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import { useState, useEffect } from "react";
 import { useMediaQuery, useTheme } from "@mui/system";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 
 import EditRestaurant from "./MergeRestaurant";
 import GeneralInfo from "./GeneralInfo";

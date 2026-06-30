@@ -1,6 +1,6 @@
 import { CloudArrowUp32Regular, Delete24Regular } from "@fluentui/react-icons";
 import { Alert, Box, Button, Card, CardContent, CardMedia, CircularProgress, Collapse, Grid, Paper, Snackbar, Stack, Switch, Typography, useTheme } from "@mui/material";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import Demo from "../../../component/ImageCroper/Demo";

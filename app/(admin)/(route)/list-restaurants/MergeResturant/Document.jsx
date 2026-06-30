@@ -1,5 +1,5 @@
 import { Alert, Box, Button, CircularProgress, FormControl, FormControlLabel, FormLabel, Grid, Paper, Radio, RadioGroup, Snackbar, Stack, TextField, Typography } from "@mui/material";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useCallback, useEffect, useState } from "react";
 import UploadCloudIcon from "../../../assets/icon/UploadCloudIcon";
 

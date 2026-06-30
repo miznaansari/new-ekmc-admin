@@ -1,7 +1,7 @@
 import { DesktopMac32Regular } from "@fluentui/react-icons";
 import { Alert, Box, Button, Grid, Pagination, Paper, Snackbar, Tab, Tabs, Typography, useMediaQuery, useTheme } from "@mui/material";
 import { ClearIcon } from "@mui/x-date-pickers";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useEffect, useState } from "react";
 
 const DeviceInfo= ({cafeId})=>{

@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useEffect, useState } from "react";
 import NewTimeManagement from "./Time/NewTimeManagement";
 

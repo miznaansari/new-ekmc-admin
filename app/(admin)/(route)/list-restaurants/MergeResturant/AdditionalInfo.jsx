@@ -17,7 +17,7 @@ import {
     TextField, 
     Typography 
 } from "@mui/material";
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useCallback, useEffect, useState } from "react";
 
 const AdditionalInfo = ({cafeId}) => {

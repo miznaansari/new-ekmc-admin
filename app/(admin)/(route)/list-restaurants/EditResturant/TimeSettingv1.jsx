@@ -16,7 +16,7 @@ import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
-import axios from "axios";
+import axios from "@/app/(admin)/utils/axios";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "@/app/(admin)/utils/nativeForm";
 

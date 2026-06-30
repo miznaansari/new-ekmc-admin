@@ -18,7 +18,7 @@ import { Nonvegdsvg } from "../../../assets/icon/NonvegSvg";
 import { Vegdsvg } from "../../../assets/icon/VwgSvg";
 import { CafeContext, useCafe } from "../../../context/cafeContext";
 import { Controller, useForm } from "@/app/(admin)/utils/nativeForm";
-import axios from "axios";
+
 import { CloudArrowUp24Regular } from "@fluentui/react-icons";
 import Demo from "../../../component/ImageCroper/Demo";
 const GeneralInfo = ({ cafeId }) => {
@@ -98,15 +98,16 @@ const GeneralInfo = ({ cafeId }) => {
     //fetch cafe generalinfo by id-
     const fetchGeneralInfo = async () => {
         try {
-            const response = await axios.get(`${baseUrl}/api/user/admin/restaurant-all-info/${cafeIdContext}`, {
+            const response = await fetch(`${baseUrl}/api/user/admin/restaurant-all-info/${cafeIdContext}`, {
+                method: "GET",
                 headers: {
                     Authorization: `Bearer ${authToken}`,
                     Accept: "*/*",
                 },
-            }
-
-            )
-            const [data] = response.data.data;
+            });
+            if (!response.ok) throw new Error("Failed to fetch general info");
+            const responseData = await response.json();
+            const [data] = responseData.data;
 
             // console.log("response in general info- ", data);
 
@@ -169,24 +170,24 @@ const GeneralInfo = ({ cafeId }) => {
             city_id: formData.city_id || 1
         }
         try {
-            const response = await axios.post(`${baseUrl}/api/user/admin/restaurant-edit-general-information/${cafeId}`, updatedData, {
+            const response = await fetch(`${baseUrl}/api/user/admin/restaurant-edit-general-information/${cafeId}`, {
+                method: "POST",
                 headers: {
                     Authorization: `Bearer ${authToken}`,
                     "Content-Type": "application/json",
-                }
-            })
+                },
+                body: JSON.stringify(updatedData)
+            });
 
-            if (response.status === 200) {
+            const resData = await response.json().catch(() => ({}));
+            if (response.ok) {
                 setAlert({ open: true, severity: "success", message: "Restaurant updated Successfully!" })
                 originalFormData.current = { ...formData }
                 setOriginalImagePreview(imagePreview);
                 setIsFormModified(false);
                 fetchGeneralInfo()
-
-            }
-            console.log("response after on submit general edit info=", response);
-            if (response.data?.response?.status === 400) {
-                console.log("error message-", response.data?.response?.msg)
+            } else {
+                throw { response: { data: resData } };
             }
         } catch (e) {
             console.log("error during submit edit general info -", e)
@@ -203,17 +204,17 @@ const GeneralInfo = ({ cafeId }) => {
         console.log("file is:", file)
         setImageUploading(true)
         try {
-            const response = await axios.post(`${baseUrl}/api/admin/cf/v1/upload`, formData, {
+            const response = await fetch(`${baseUrl}/api/admin/cf/v1/upload`, {
+                method: "POST",
                 headers: {
                     Authorization: `Bearer ${authToken}`,
-                    "Content-Type": "multipart/form-data"
-                }
-            })
-            if (response.status === 200) {
-                setAlert({ open: true, severity: "success", message: "Uploaded successsfully" })
-            }
-            console.log("response in upload image- ", response);
-            const imageUrl = response.data?.customUrl
+                },
+                body: formData
+            });
+            if (!response.ok) throw new Error("Image upload failed");
+            const resData = await response.json();
+            setAlert({ open: true, severity: "success", message: "Uploaded successsfully" });
+            const imageUrl = resData?.customUrl;
             setImagePreview(imageUrl)
         } catch (e) {
             console.log("error during image upload- ", e)
