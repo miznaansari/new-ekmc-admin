@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/restaurant/*": ["./app/(admin)/component/restaurant/*"],
+      "@/ui/assets/*": ["./app/(admin)/assets/*"]
     }
   }
 }

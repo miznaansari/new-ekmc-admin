@@ -1952,7 +1952,7 @@ const ListRestaurantClient = () => {
                 width: {
                   xs: "100%",
                   sm: "100%",
-                  md: 800,
+                  md: 1000,
                 },
                 height: "100vh",
                 p: 0,
