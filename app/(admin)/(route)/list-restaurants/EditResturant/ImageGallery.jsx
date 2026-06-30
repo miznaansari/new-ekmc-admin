@@ -2,7 +2,7 @@ import { CloudArrowUp32Regular, Delete24Regular } from "@fluentui/react-icons";
 import { Alert, Box, Button, Card, CardContent, CardMedia, CircularProgress, Collapse, Grid, Paper, Snackbar, Switch, Typography, useTheme } from "@mui/material";
 import axios from "@/app/(admin)/utils/axios";
 import { useCallback, useEffect, useState, useRef } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone } from "@/app/(admin)/utils/nativeDropzone";
 import Demo from "../../../component/ImageCroper/Demo";
 
 const ProgressiveCardMedia = ({ image }) => {
