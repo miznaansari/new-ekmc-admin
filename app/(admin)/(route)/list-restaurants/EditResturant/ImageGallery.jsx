@@ -351,7 +351,7 @@ const ImageGallery = ({ cafeId }) => {
                 throw new Error("Failed to download image from Google");
             }
             const blob = await response.blob();
-            
+
             // 2. Create File from Blob
             const mimeType = blob.type || 'image/jpeg';
             const extension = mimeType.split('/')[1] || 'jpg';

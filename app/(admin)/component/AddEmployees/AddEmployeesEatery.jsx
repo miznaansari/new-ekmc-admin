@@ -18,6 +18,7 @@ import {
   useMediaQuery,
   useTheme,
 } from "@mui/material";
+import { useForm, Controller } from "react-hook-form";
 import Autocomplete from "@mui/material/Autocomplete";
 import { Close } from "@mui/icons-material";
 import { CloudArrowUp16Regular, Delete16Regular, DocumentArrowUp16Regular, Image32Regular } from "@fluentui/react-icons";
@@ -33,23 +34,8 @@ const AddEmployeesEatery = ({ onSuccess, onClose, selectEatry }) => {
   const [loading, setLoading] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [formData, setFormData] = useState({
-    user_role_id: "",
-    first_name: "",
-    last_name: "",
-    cafe_list_id: selectEatry?.id || null,
-    mobile_number: "",
-    email: "",
-    status: true,
-    photo_proof_id_url: "",
-    address_proof_id_url: "",
-    profile_pic_image_id: "",
-    uap_azure_original_image_url: ""
-  });
-  const [errors, setErrors] = useState({});
-
-  const reset = () => {
-    setFormData({
+  const { handleSubmit, control, reset, setValue, formState: { errors }, } = useForm({
+    defaultValues: {
       user_role_id: "",
       first_name: "",
       last_name: "",
@@ -61,34 +47,20 @@ const AddEmployeesEatery = ({ onSuccess, onClose, selectEatry }) => {
       address_proof_id_url: "",
       profile_pic_image_id: "",
       uap_azure_original_image_url: ""
-    });
-    setSelectedCafe(selectEatry?.id ? { label: selectEatry.cafe_name || selectEatry.name, value: selectEatry.id } : null);
-    setErrors({});
-  };
+    },
+    resolver: async (data) => {
+      const errors = {};
+      if (!data.first_name) errors.first_name = { message: "First name is required" };
+      if (!data.last_name) errors.last_name = { message: "Last name is required" };
+      if (!data.mobile_number) {
+        errors.mobile_number = { message: "Mobile number is required" };
+      } else if (!/^[6-9]\d{9}$/.test(data.mobile_number)) {
+        errors.mobile_number = { message: "Invalid mobile number" };
+      }
 
-  const validate = (data) => {
-    const tempErrors = {};
-    if (!data.first_name) tempErrors.first_name = { message: "First name is required" };
-    if (!data.last_name) tempErrors.last_name = { message: "Last name is required" };
-    if (!data.mobile_number) {
-      tempErrors.mobile_number = { message: "Mobile number is required" };
-    } else if (!/^[6-9]\d{9}$/.test(data.mobile_number)) {
-      tempErrors.mobile_number = { message: "Invalid mobile number" };
-    }
-    setErrors(tempErrors);
-    return Object.keys(tempErrors).length === 0;
-  };
-
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    if (!validate(formData)) {
-      setSnackbarMessage("Please fix the errors before saving.");
-      setOpenSnackbar(true);
-      return;
-    }
-    onSubmit(formData);
-  };
-
+      return { values: data, errors };
+    },
+  });
   const [seacrhCafeQuery, setSearchCafequery] = useState("");
   const [alert, setAlert] = useState({
     open: false,
@@ -315,7 +287,7 @@ const AddEmployeesEatery = ({ onSuccess, onClose, selectEatry }) => {
 
       <Box
         component="form"
-        onSubmit={handleFormSubmit}
+        onSubmit={handleSubmit(onSubmit)}
         sx={{
           flex: 1,
           display: 'flex',
@@ -374,77 +346,87 @@ const AddEmployeesEatery = ({ onSuccess, onClose, selectEatry }) => {
 
             <Grid container spacing={1}>
               <Grid item xs={12}>
-                <TextField
-                  label="First Name"
-                  variant="outlined"
-                  fullWidth
-                  size="small"
-                  margin="dense"
-                  required
-                  value={formData.first_name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, first_name: e.target.value }))}
-                  error={!!errors.first_name}
-                  helperText={errors.first_name?.message}
+                <Controller
+                  name="first_name"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      label="First Name"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      margin="dense"
+                      required
+                      {...field}
+                    />
+                  )}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <TextField
-                  label="Last Name"
-                  variant="outlined"
-                  fullWidth
-                  required
-                  size="small"
-                  margin="dense"
-                  value={formData.last_name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, last_name: e.target.value }))}
-                  error={!!errors.last_name}
-                  helperText={errors.last_name?.message}
+                <Controller
+                  name="last_name"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      label="Last Name"
+                      variant="outlined"
+                      fullWidth
+                      required
+                      size="small"
+                      margin="dense"
+                      {...field}
+                    />
+                  )}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <FormControl fullWidth variant="outlined" required error={!!errors.cafe_list_id}>
-                  <Autocomplete
-                    options={restaurants}
-                    value={selectedCafe}
-                    getOptionKey={(option) => option.value}
-                    getOptionLabel={(option) => option.label}
-                    isOptionEqualToValue={(option, value) =>
-                      option.value === value.value
-                    }
-                    onInputChange={(_, inputValue) => {
-                      setSearchCafequery(inputValue);
-                    }}
-                    onChange={(_, newValue) => {
-                      setSelectedCafe(newValue || null);
-                      setFormData((prev) => ({ ...prev, cafe_list_id: newValue?.value || null }));
-                    }}
-                    loading={loading}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Restaurant Name"
-                        variant="outlined"
-                        size="small"
-                        margin="dense"
-                        required
-                        error={!!errors.cafe_list_id}
-                        helperText={errors.cafe_list_id?.message}
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {loading ? (
-                                <CircularProgress
-                                  color="inherit"
-                                  size={20}
-                                />
-                              ) : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
+                <FormControl fullWidth variant="outlined" required>
+                  <Controller
+                    name="cafe_list_id"
+                    control={control}
+                    render={({ field: { onChange, value } }) => (
+                      <Autocomplete
+                        options={restaurants}
+                        value={selectedCafe}
+                        getOptionKey={(option) => option.value}
+                        getOptionLabel={(option) => option.label}
+                        isOptionEqualToValue={(option, value) =>
+                          option.value === value.value
+                        }
+                        onInputChange={(_, inputValue) => {
+                          setSearchCafequery(inputValue);
                         }}
+                        onChange={(_, newValue) => {
+                          setSelectedCafe(newValue || null);
+                          onChange(newValue?.value || null);
+                        }}
+                        loading={loading}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Restaurant Name"
+                            variant="outlined"
+                            size="small"
+                            margin="dense"
+                            required
+                            InputProps={{
+                              ...params.InputProps,
+                              endAdornment: (
+                                <>
+                                  {loading ? (
+                                    <CircularProgress
+                                      color="inherit"
+                                      size={20}
+                                    />
+                                  ) : null}
+                                  {params.InputProps.endAdornment}
+                                </>
+                              ),
+                            }}
+                          />
+                        )}
                       />
                     )}
                   />
@@ -452,57 +434,70 @@ const AddEmployeesEatery = ({ onSuccess, onClose, selectEatry }) => {
               </Grid>
 
               <Grid item xs={12}>
-                <FormControl fullWidth variant="outlined" required error={!!errors.user_role_id}>
-                  <TextField
-                    select
-                    label="Employee Role"
-                    variant="outlined"
-                    fullWidth
-                    size="small"
-                    margin="dense"
-                    required
-                    SelectProps={{
-                      native: true,
-                    }}
-                    value={formData.user_role_id}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, user_role_id: e.target.value }))}
-                    error={!!errors.user_role_id}
-                    helperText={errors.user_role_id?.message}
-                  >
-                    <option value=""></option>
-                    <option value="2">Manager</option>
-                    <option value="3">Kitchen</option>
-                    <option value="4">Captain</option>
-                  </TextField>
+                <FormControl fullWidth variant="outlined" required>
+                  <Controller
+                    name="user_role_id"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        select
+                        label="Employee Role"
+                        variant="outlined"
+                        fullWidth
+                        size="small"
+                        margin="dense"
+                        required
+                        SelectProps={{
+                          native: true,
+                        }}
+                        {...field}
+                      >
+                        <option value=""></option>
+                        <option value="2">Manager</option>
+                        <option value="3">Kitchen</option>
+                        <option value="4">Captain</option>
+                      </TextField>
+                    )}
+                  />
                 </FormControl>
               </Grid>
 
               <Grid item xs={12}>
-                <TextField
-                  label="Email"
-                  variant="outlined"
-                  fullWidth
-                  size="small"
-                  margin="dense"
-                  error={!!errors.email}
-                  helperText={errors.email?.message}
-                  value={formData.email}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
+                <Controller
+                  name="email"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      label="Email"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      margin="dense"
+                      error={!!errors.email}
+                      helperText={errors.email?.message}
+                      {...field}
+                    />
+                  )}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <TextField
-                  label="Phone"
-                  variant="outlined"
-                  fullWidth
-                  size="small"
-                  margin="dense"
-                  required
-                  error={!!errors.mobile_number}
-                  helperText={errors.mobile_number?.message}
-                  value={formData.mobile_number}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, mobile_number: e.target.value }))}
+                <Controller
+                  name="mobile_number"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      label="Phone"
+                      variant="outlined"
+                      fullWidth
+                      size="small"
+                      margin="dense"
+                      required
+                      error={!!errors.mobile_number}
+                      helperText={errors.mobile_number?.message}
+                      {...field}
+                    />
+                  )}
                 />
               </Grid>
             </Grid>
@@ -563,12 +558,18 @@ const AddEmployeesEatery = ({ onSuccess, onClose, selectEatry }) => {
 
             <Box display="flex" alignItems="center" mt={3} mb={2}>
               <Typography>Active</Typography>
-              <Switch
-                checked={formData.status}
-                onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.checked }))}
-                color='secondary'
-                size='small'
-                inputProps={{ "aria-label": "controlled" }}
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <Switch
+                    checked={field.value}
+                    onChange={field.onChange}
+                    color='secondary'
+                    size='small'
+                    inputProps={{ "aria-label": "controlled" }}
+                  />
+                )}
               />
             </Box>
           </Paper>
