@@ -14,7 +14,6 @@ import {
   Typography,
   useMediaQuery,
 } from "@mui/material";
-import { Controller, useForm } from "react-hook-form";
 import { useTheme } from "@mui/material/styles";
 
 const ExpandableTable = ({ cafeId }) => {
@@ -40,25 +39,23 @@ const ExpandableTable = ({ cafeId }) => {
     return () => window.removeEventListener("resize", updateWidth);
   }, [isMobile]);
 
-  /* ================= FORM ================= */
-  const { control, reset, getValues } = useForm({
-    defaultValues: {
-      is_veg: 0,
-      is_non_veg: 0,
-      allow_order: 0,
-      allow_qr_edit: 0,
-      allow_login: 0,
-      allow_menu_edit: 0,
-      allow_profile_edit: 0,
-      is_test_cafe: 0,
-      status: 0,
-      is_published: 0,
-      is_user_location_required: 0,
-      is_daily_report: 0,
-      is_limelight: 0,
-      is_hot_today: 0,
-      is_featured: 0,
-    },
+  /* ================= FORM STATE ================= */
+  const [formData, setFormData] = useState({
+    is_veg: 0,
+    is_non_veg: 0,
+    allow_order: 0,
+    allow_qr_edit: 0,
+    allow_login: 0,
+    allow_menu_edit: 0,
+    allow_profile_edit: 0,
+    is_test_cafe: 0,
+    status: 0,
+    is_published: 0,
+    is_user_location_required: 0,
+    is_daily_report: 0,
+    is_limelight: 0,
+    is_hot_today: 0,
+    is_featured: 0,
   });
 
   /* ================= STATE ================= */
@@ -73,7 +70,7 @@ const ExpandableTable = ({ cafeId }) => {
   /* ================= DEBOUNCE ================= */
   const updateTimer = useRef(null);
 
-  const debouncedUpdate = () => {
+  const debouncedUpdate = (updatedData) => {
     if (updateTimer.current) clearTimeout(updateTimer.current);
 
     updateTimer.current = setTimeout(async () => {
@@ -86,7 +83,7 @@ const ExpandableTable = ({ cafeId }) => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify(getValues()),
+            body: JSON.stringify(updatedData),
           }
         );
         if (!res.ok) throw new Error("Update failed");
@@ -105,6 +102,13 @@ const ExpandableTable = ({ cafeId }) => {
     }, 600);
   };
 
+  const handleToggle = (name, checked) => {
+    const nextVal = checked ? 1 : 0;
+    const nextFormData = { ...formData, [name]: nextVal };
+    setFormData(nextFormData);
+    debouncedUpdate(nextFormData);
+  };
+
   /* ================= FETCH ================= */
   const fetchCafeDetails = useCallback(async () => {
     try {
@@ -120,7 +124,7 @@ const ExpandableTable = ({ cafeId }) => {
       const data = Array.isArray(rawData) ? rawData[0] : rawData;
       if (!data) return;
 
-      reset({
+      setFormData({
         cafe_name: data.cafe_name || "",
         cafe_email: data.cafe_email || "",
         cafe_mobile_number: data.cafe_mobile_number || "",
@@ -164,7 +168,7 @@ const ExpandableTable = ({ cafeId }) => {
     } finally {
       setLoading(false);
     }
-  }, [cafeId, baseUrl, token, reset]);
+  }, [cafeId, baseUrl, token]);
 
   const toggleFeatured = async (img) => {
     const willBeFeatured = img.is_featured ? 0 : 1;
@@ -268,33 +272,24 @@ const ExpandableTable = ({ cafeId }) => {
           sx={{ mt: 1, flexWrap: "wrap" }}
         >
           {["is_veg", "is_non_veg"].map((name) => (
-            <Controller
+            <Box
               key={name}
-              name={name}
-              control={control}
-              render={({ field }) => (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: isMobile ? innerWidth : "auto",
-                  }}
-                >
-                  <Typography variant="body2">
-                    {name === "is_veg" ? "Veg" : "Non-Veg"}
-                  </Typography>
-                  <Switch
-                    size="small"
-                    checked={!!field.value}
-                    onChange={(e) => {
-                      field.onChange(e.target.checked ? 1 : 0);
-                      debouncedUpdate();
-                    }}
-                  />
-                </Box>
-              )}
-            />
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: isMobile ? innerWidth : "auto",
+              }}
+            >
+              <Typography variant="body2">
+                {name === "is_veg" ? "Veg" : "Non-Veg"}
+              </Typography>
+              <Switch
+                size="small"
+                checked={!!formData[name]}
+                onChange={(e) => handleToggle(name, e.target.checked)}
+              />
+            </Box>
           ))}
         </Stack>
 
@@ -315,31 +310,22 @@ const ExpandableTable = ({ cafeId }) => {
             ["allow_profile_edit", "Edit Profile"],
             ["is_test_cafe", "Test Cafe"],
           ].map(([name, label]) => (
-            <Controller
+            <Box
               key={name}
-              name={name}
-              control={control}
-              render={({ field }) => (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: isMobile ? innerWidth : "auto",
-                  }}
-                >
-                  <Typography variant="body2">{label}</Typography>
-                  <Switch
-                    size="small"
-                    checked={!!field.value}
-                    onChange={(e) => {
-                      field.onChange(e.target.checked ? 1 : 0);
-                      debouncedUpdate();
-                    }}
-                  />
-                </Box>
-              )}
-            />
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: isMobile ? innerWidth : "auto",
+              }}
+            >
+              <Typography variant="body2">{label}</Typography>
+              <Switch
+                size="small"
+                checked={!!formData[name]}
+                onChange={(e) => handleToggle(name, e.target.checked)}
+              />
+            </Box>
           ))}
         </Stack>
 
@@ -361,31 +347,22 @@ const ExpandableTable = ({ cafeId }) => {
             ["is_hot_today", "Hot Today"],
             ["is_featured", "Featured"],
           ].map(([name, label]) => (
-            <Controller
+            <Box
               key={name}
-              name={name}
-              control={control}
-              render={({ field }) => (
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    width: isMobile ? innerWidth : "auto",
-                  }}
-                >
-                  <Typography variant="body2">{label}</Typography>
-                  <Switch
-                    size="small"
-                    checked={!!field.value}
-                    onChange={(e) => {
-                      field.onChange(e.target.checked ? 1 : 0);
-                      debouncedUpdate();
-                    }}
-                  />
-                </Box>
-              )}
-            />
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: isMobile ? innerWidth : "auto",
+              }}
+            >
+              <Typography variant="body2">{label}</Typography>
+              <Switch
+                size="small"
+                checked={!!formData[name]}
+                onChange={(e) => handleToggle(name, e.target.checked)}
+              />
+            </Box>
           ))}
         </Stack>
 
