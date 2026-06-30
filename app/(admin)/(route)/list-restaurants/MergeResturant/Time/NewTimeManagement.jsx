@@ -15,9 +15,8 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
 import TimePart1 from "./TimePart1"; // UI Part
-import { useNavigate } from "react-router-dom";
-import instanceV1 from "../../../../component/restaurant/authaxios";
-import GlobalSnackbar from "../../../../utils/GlobalSnackbar"
+import instanceV1 from "@/app/(admin)/component/restaurant/authaxios";
+import GlobalSnackbar from "@/app/(admin)/utils/GlobalSnackbar";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -267,7 +266,7 @@ export default function NewTimeManagement({ action, setAction, cafeListId }) {
       })),
     })),
   });
-  const navigate = useNavigate();
+
 
   const handleSave = async () => {
     // if (!validateSchedule()) {
