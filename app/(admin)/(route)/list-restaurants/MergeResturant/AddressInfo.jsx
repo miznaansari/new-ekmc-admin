@@ -4,6 +4,16 @@ import axios from "axios";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 
+const extractPincode = (addressComponents) => {
+    if (!addressComponents || !Array.isArray(addressComponents)) return null;
+    
+    const postalCodeComponent = addressComponents.find(component => 
+        component.types && component.types.includes('postal_code')
+    );
+    
+    return postalCodeComponent ? postalCodeComponent.long_name : null;
+};
+
 const AddressInfo = ({ cafeId, mapContainerId }) => {
     const { control, handleSubmit, reset, getValues, watch, formState: { errors }, setValue } = useForm({
         defaultValues: {
@@ -69,6 +79,10 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
     const popupRef = useRef(null);
     const olaMapsRef = useRef(null);
     const mapInitialized = useRef(false);
+    const positionRef = useRef(null);
+    useEffect(() => {
+        positionRef.current = position;
+    }, [position]);
 
     // Validation rules
     const validationRules = {
@@ -90,16 +104,7 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
     // Watch all form fields for changes
     const formValues = watch();
 
-    // NEW: Function to extract pincode from address components
-    const extractPincode = (addressComponents) => {
-        if (!addressComponents || !Array.isArray(addressComponents)) return null;
-        
-        const postalCodeComponent = addressComponents.find(component => 
-            component.types && component.types.includes('postal_code')
-        );
-        
-        return postalCodeComponent ? postalCodeComponent.long_name : null;
-    };
+
 
     // Check if form data is modified
     const checkIfDataModified = useCallback(() => {
@@ -135,91 +140,8 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         setIsFormModified(checkIfDataModified());
     }, [formValues, selectedCity, position, selectedAddressText, checkIfDataModified]);
 
-    // Zoom functions
-    const zoomIn = useCallback(() => {
-        if (mapRef.current) {
-            const currentZoom = mapRef.current.getZoom();
-            mapRef.current.setZoom(currentZoom + 1);
-        }
-    }, []);
-
-    const zoomOut = useCallback(() => {
-        if (mapRef.current) {
-            const currentZoom = mapRef.current.getZoom();
-            mapRef.current.setZoom(currentZoom - 1);
-        }
-    }, []);
-
-    // Initialize OLA Maps only once
-    useEffect(() => {
-        if (!OlaApiKey || mapInitialized.current) return;
-
-        let active = true;
-        let mapInstance = null;
-
-        const initMaps = async () => {
-            try {
-                const { OlaMaps } = await import('olamaps-web-sdk');
-                if (!active) return;
-
-                olaMapsRef.current = new OlaMaps({
-                    apiKey: OlaApiKey,
-                });
-
-                const defaultCenter = [77.61648476788898, 12.931423492103944];
-                
-                mapRef.current = olaMapsRef.current.init({
-                    style: "https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json",
-                    container: resolvedMapContainerId,
-                    center: defaultCenter,
-                    zoom: 15,
-                });
-                mapInstance = mapRef.current;
-
-                // Add click event listener to map
-                mapRef.current.on("click", (e) => {
-                    const { lat, lng } = e.lngLat;
-                    console.log("Map clicked - lat and lng:", lat, lng);
-                    
-                    const newPos = { 
-                        lat: parseFloat(lat.toFixed(6)), 
-                        lng: parseFloat(lng.toFixed(6)) 
-                    };
-
-                    updateMarkerPosition(newPos, false); // Don't center map on click
-                    setPosition(newPos);
-                    
-                    // NEW: Get address for clicked location and update pincode
-                    reverseGeocode(newPos);
-                });
-
-                if (position) {
-                    updateMarkerPosition(position);
-                }
-
-                mapInitialized.current = true;
-            } catch (err) {
-                console.error("Error loading olamaps-web-sdk:", err);
-            }
-        };
-
-        initMaps();
-
-        // Cleanup function
-        return () => {
-            active = false;
-            if (mapInstance) {
-                mapInstance.remove();
-                mapRef.current = null;
-                markerRef.current = null;
-                popupRef.current = null;
-                mapInitialized.current = false;
-            }
-        };
-    }, [OlaApiKey, resolvedMapContainerId, position, updateMarkerPosition]);
-
     // NEW: Function to perform reverse geocoding and get address details
-    const reverseGeocode = async (position) => {
+    const reverseGeocode = useCallback(async (position) => {
         try {
             const response = await axios.get(
                 `https://api.olamaps.io/places/v1/reverse-geocode`,
@@ -244,7 +166,16 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                 
                 // Update pincode if found
                 if (pincode) {
-                    setValue('pin_code', pincode);
+                    setValue('pin_code', pincode, { shouldDirty: true, shouldValidate: true });
+                }
+
+                // Update address fields
+                if (formattedAddress) {
+                    const parts = formattedAddress.split(',').map(p => p.trim());
+                    const addr1 = parts.slice(0, 2).join(', ');
+                    const addr2 = parts.slice(2).join(', ');
+                    setValue('address_1', addr1, { shouldDirty: true, shouldValidate: true });
+                    setValue('address_2', addr2, { shouldDirty: true, shouldValidate: true });
                 }
                 
                 console.log('Reverse geocoded address:', formattedAddress);
@@ -253,7 +184,17 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         } catch (error) {
             console.error('Error reverse geocoding:', error);
         }
-    };
+    }, [OlaApiKey, setValue, setSelectedAddressText, setSearchQuery]);
+
+    // Function to update popup text
+    const updatePopupText = useCallback((pos) => {
+        if (popupRef.current) {
+            //popupRef.current.setText(`Lat: ${pos.lat}, Lng: ${pos.lng}`);
+            if (!popupRef.current.isOpen()) {
+                markerRef.current.togglePopup();
+            }
+        }
+    }, []);
 
     // Function to update marker position
     const updateMarkerPosition = useCallback((newPosition, shouldCenterMap = true) => {
@@ -318,17 +259,90 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
         }
 
         updatePopupText(newPosition);
-    }, []);
+    }, [reverseGeocode, updatePopupText]);
 
-    // Function to update popup text
-    const updatePopupText = useCallback((pos) => {
-        if (popupRef.current) {
-            //popupRef.current.setText(`Lat: ${pos.lat}, Lng: ${pos.lng}`);
-            if (!popupRef.current.isOpen()) {
-                markerRef.current.togglePopup();
-            }
+    // Zoom functions
+    const zoomIn = useCallback(() => {
+        if (mapRef.current) {
+            const currentZoom = mapRef.current.getZoom();
+            mapRef.current.setZoom(currentZoom + 1);
         }
     }, []);
+
+    const zoomOut = useCallback(() => {
+        if (mapRef.current) {
+            const currentZoom = mapRef.current.getZoom();
+            mapRef.current.setZoom(currentZoom - 1);
+        }
+    }, []);
+
+    // Initialize OLA Maps only once
+    useEffect(() => {
+        if (!OlaApiKey || mapInitialized.current) return;
+
+        let active = true;
+        let mapInstance = null;
+
+        const initMaps = async () => {
+            try {
+                const { OlaMaps } = await import('olamaps-web-sdk');
+                if (!active) return;
+
+                olaMapsRef.current = new OlaMaps({
+                    apiKey: OlaApiKey,
+                });
+
+                const defaultCenter = [77.61648476788898, 12.931423492103944];
+                
+                mapRef.current = olaMapsRef.current.init({
+                    style: "https://api.olamaps.io/tiles/vector/v1/styles/default-light-standard/style.json",
+                    container: resolvedMapContainerId,
+                    center: defaultCenter,
+                    zoom: 15,
+                });
+                mapInstance = mapRef.current;
+
+                // Add click event listener to map
+                mapRef.current.on("click", (e) => {
+                    const { lat, lng } = e.lngLat;
+                    console.log("Map clicked - lat and lng:", lat, lng);
+                    
+                    const newPos = { 
+                        lat: parseFloat(lat.toFixed(6)), 
+                        lng: parseFloat(lng.toFixed(6)) 
+                    };
+
+                    updateMarkerPosition(newPos, false); // Don't center map on click
+                    setPosition(newPos);
+                    
+                    // NEW: Get address for clicked location and update pincode
+                    reverseGeocode(newPos);
+                });
+
+                if (positionRef.current) {
+                    updateMarkerPosition(positionRef.current);
+                }
+
+                mapInitialized.current = true;
+            } catch (err) {
+                console.error("Error loading olamaps-web-sdk:", err);
+            }
+        };
+
+        initMaps();
+
+        // Cleanup function
+        return () => {
+            active = false;
+            if (mapInstance) {
+                mapInstance.remove();
+                mapRef.current = null;
+                markerRef.current = null;
+                popupRef.current = null;
+                mapInitialized.current = false;
+            }
+        };
+    }, [OlaApiKey, resolvedMapContainerId, updateMarkerPosition, reverseGeocode]);
 
     // Function to search locations using Ola Maps API
     const searchLocation = async (query) => {
@@ -400,15 +414,24 @@ const AddressInfo = ({ cafeId, mapContainerId }) => {
                     
                     // NEW: Set the selected address text and update pincode
                     const selectedResult = searchResults.find(r => r.placeId === placeId);
-                    if (selectedResult) {
-                        setSelectedAddressText(selectedResult.fullAddress);
-                        setSearchQuery(selectedResult.fullAddress);
+                    const addressToUse = selectedResult ? selectedResult.fullAddress : place.formatted_address;
+                    
+                    if (addressToUse) {
+                        setSelectedAddressText(addressToUse);
+                        setSearchQuery(addressToUse);
                         
                         // Extract pincode from place details
                         const pincode = extractPincode(place.address_components);
                         if (pincode) {
-                            setValue('pin_code', pincode);
+                            setValue('pin_code', pincode, { shouldDirty: true, shouldValidate: true });
                         }
+
+                        // Split address and update fields
+                        const parts = addressToUse.split(',').map(p => p.trim());
+                        const addr1 = parts.slice(0, 2).join(', ');
+                        const addr2 = parts.slice(2).join(', ');
+                        setValue('address_1', addr1, { shouldDirty: true, shouldValidate: true });
+                        setValue('address_2', addr2, { shouldDirty: true, shouldValidate: true });
                     }
                     
                     // Clear search results
